@@ -12,8 +12,8 @@ const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 // Auth client — anon key is allowed in browser
 const supabase = createClient(SUPABASE_URL, ANON_KEY);
 
-// Auth Admin API helpers (uses apikey-only — for server-side operations like magic links)
-const ADMIN_H = { "apikey": SERVICE_ROLE_KEY, "Content-Type": "application/json" };
+// Auth Admin API helpers — beide Header nötig für /auth/v1/admin/* Endpoints
+const ADMIN_H = { "apikey": SERVICE_ROLE_KEY, "Authorization": `Bearer ${SERVICE_ROLE_KEY}`, "Content-Type": "application/json" };
 async function authAdminGet(path) {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/${path}`, { headers: ADMIN_H });
   if (!res.ok) return null;
@@ -516,12 +516,19 @@ function Customers({ teams, onUpdate }) {
     const { data: profile } = await supabase.from("profiles").select("id").eq("team_id", teamId).limit(1).maybeSingle();
     if (!profile) { alert("Kein Nutzer für dieses Team gefunden."); return; }
     const user = await authAdminGet(`users/${profile.id}`);
-    if (!user?.email) { alert("E-Mail nicht gefunden."); return; }
-    const linkData = await authAdminPost("generate_link", { type: "magiclink", email: user.email });
+    if (!user?.email) {
+      alert(`Kein Auth-User für Profil ${profile.id} gefunden.\n\nMögliche Ursache: Service Role Key fehlt oder falsch in den Umgebungsvariablen.`);
+      return;
+    }
+    const linkData = await authAdminPost("generate_link", {
+      type: "magiclink",
+      email: user.email,
+      options: { redirect_to: "https://app.kicklog.de" },
+    });
     if (linkData?.action_link) {
       window.open(linkData.action_link, "_blank");
     } else {
-      alert("Magic Link konnte nicht generiert werden.");
+      alert("Magic Link konnte nicht generiert werden. Antwort: " + JSON.stringify(linkData));
     }
   };
 
