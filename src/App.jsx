@@ -500,25 +500,19 @@ function Customers({ teams, onUpdate }) {
   });
 
   const impersonate = async (teamId) => {
-    // supabaseAdmin bypasses RLS — zuverlässiger als authenticated supabase client
-    const { data: profiles, error: profErr } = await supabaseAdmin.from("profiles").select("id").eq("team_id", teamId).limit(1);
-    const profile = profiles?.[0];
-    if (profErr || !profile) { alert("Kein Nutzer für dieses Team gefunden.\n" + (profErr?.message || "Keine Profile mit dieser team_id")); return; }
-    const { data: { user }, error: userErr } = await supabaseAdmin.auth.admin.getUserById(profile.id);
-    if (userErr || !user?.email) {
-      alert(`Auth-User nicht gefunden (${userErr?.message || "kein Email"}).\nProfil-ID: ${profile.id}`);
-      return;
-    }
-    const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
-      type: "magiclink",
-      email: user.email,
-      options: { redirectTo: "https://app.kicklog.de" },
+    // Edge Function server-side — bypasses "Forbidden use of secret API key in browser"
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) { alert("Nicht eingeloggt."); return; }
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-impersonate`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ teamId }),
     });
-    if (linkErr || !linkData?.properties?.action_link) {
-      alert("Magic Link Fehler: " + (linkErr?.message || JSON.stringify(linkData)));
-      return;
-    }
-    window.open(linkData.properties.action_link, "_blank");
+    const json = await res.json();
+    if (!res.ok || json.error) { alert("Fehler: " + (json.error || res.statusText)); return; }
+    window.open(json.link, "_blank");
   };
 
   return (
