@@ -559,6 +559,11 @@ function Customers({ teams, onUpdate }) {
               <div key={`${t.id}-name`} style={{ padding: "12px 16px", borderBottom: `1px solid ${c.border}22`, display: "flex", flexDirection: "column", justifyContent: "center" }}>
                 <span style={{ color: c.text, fontWeight: 600, fontSize: 13 }}>{t.name}</span>
                 <span style={{ color: c.textDim, fontSize: 11 }}>{t.saison || "—"}</span>
+                <span
+                  title="Klicken zum Kopieren"
+                  onClick={() => navigator.clipboard.writeText(t.id)}
+                  style={{ color: c.textMuted, fontSize: 10, fontFamily: "monospace", cursor: "pointer", marginTop: 2 }}
+                >{t.id}</span>
               </div>,
               <div key={`${t.id}-plan`} style={{ padding: "12px 16px", borderBottom: `1px solid ${c.border}22`, display: "flex", alignItems: "center" }}>
                 <Badge label={planLabel(t.plan)} color={planColor(t.plan)} />
