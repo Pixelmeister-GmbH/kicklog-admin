@@ -784,6 +784,460 @@ function Settings({ currentUser }) {
 }
 
 // ============================================
+// Club Onboarding Wizard
+// ============================================
+const LIGA_OPTIONS = ["Kreisliga A", "Kreisliga B", "Kreisliga C", "Bezirksliga", "Landesliga", "Verbandsliga", "Oberliga", "Regionalliga", "Sonstige"];
+
+function ClubOnboardingWizard({ onClose, onSuccess }) {
+  const [step, setStep] = useState(1);
+  const [clubData, setClubData] = useState({ name: "", contact_name: "", contact_email: "", contact_phone: "", num_teams: 1, internal_note: "" });
+  const [teamsData, setTeamsData] = useState([{ name: "", liga: "Kreisliga A", trainer_name: "", trainer_email: "" }]);
+  const [creating, setCreating] = useState(false);
+  const [log, setLog] = useState([]);
+  const [result, setResult] = useState(null);
+  const [step1Err, setStep1Err] = useState("");
+
+  const handleClubField = (field, value) => {
+    setClubData((prev) => ({ ...prev, [field]: value }));
+    if (field === "num_teams") {
+      const n = parseInt(value) || 1;
+      setTeamsData((prev) => {
+        if (prev.length === n) return prev;
+        if (prev.length < n) return [...prev, ...Array(n - prev.length).fill(null).map(() => ({ name: "", liga: "Kreisliga A", trainer_name: "", trainer_email: "" }))];
+        return prev.slice(0, n);
+      });
+    }
+  };
+
+  const handleTeamField = (i, field, value) => setTeamsData((prev) => prev.map((t, idx) => idx === i ? { ...t, [field]: value } : t));
+
+  const handleCreate = async () => {
+    setCreating(true);
+    setLog(["Verein wird angelegt..."]);
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    setTimeout(() => setLog((p) => [...p, "Teams werden erstellt..."]), 600);
+    setTimeout(() => setLog((p) => [...p, "Einladungen werden versendet..."]), 1400);
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-create-club`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ clubData, teamsData }),
+    });
+    const json = await res.json();
+    if (!res.ok || json.error) {
+      setLog((p) => [...p, "❌ Fehler: " + json.error]);
+      setCreating(false);
+      return;
+    }
+    setResult(json);
+    setCreating(false);
+    setStep(4);
+  };
+
+  const accounts = [
+    { email: clubData.contact_email, role: "club_admin", label: "Vereinsadmin" },
+    ...teamsData.filter((t) => t.trainer_email).map((t) => ({ email: t.trainer_email, role: "coach", label: `Trainer — ${t.name || "Team"}` })),
+  ];
+
+  const progressStyle = { height: 4, background: c.border, borderRadius: 2, overflow: "hidden", marginTop: 14 };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#000000cc", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ background: c.surface, border: `1px solid ${c.border}`, borderRadius: 14, width: "100%", maxWidth: 600, maxHeight: "92vh", overflow: "auto" }}>
+        {/* Header */}
+        <div style={{ padding: "20px 24px 16px", borderBottom: `1px solid ${c.border}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ color: c.text, fontWeight: 700, fontSize: 16 }}>
+              {step === 4 ? "✅ Fertig!" : `Neuer Vereinskunde — Schritt ${step} von 4`}
+            </span>
+            {step !== 4 && !creating && <button onClick={onClose} style={{ ...baseBtn, background: "transparent", color: c.textDim, padding: "2px 8px", fontSize: 18 }}>×</button>}
+          </div>
+          <div style={progressStyle}>
+            <div style={{ height: "100%", width: `${(step / 4) * 100}%`, background: c.accent, borderRadius: 2, transition: "width 0.3s" }} />
+          </div>
+        </div>
+
+        <div style={{ padding: 24 }}>
+          {/* Step 1 */}
+          {step === 1 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {[
+                { label: "Vereinsname *", field: "name", placeholder: "FC Musterstadt e.V." },
+                { label: "Ansprechpartner (Vorstand) *", field: "contact_name", placeholder: "Max Mustermann" },
+                { label: "E-Mail Ansprechpartner *", field: "contact_email", placeholder: "vorstand@fc-musterstadt.de", type: "email" },
+                { label: "Telefon (optional)", field: "contact_phone", placeholder: "+49 ..." },
+              ].map(({ label, field, placeholder, type }) => (
+                <div key={field}>
+                  <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</label>
+                  <input style={inputStyle} type={type || "text"} placeholder={placeholder}
+                    value={clubData[field]} onChange={(e) => handleClubField(field, e.target.value)} />
+                </div>
+              ))}
+              <div>
+                <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Anzahl Teams *</label>
+                <select style={inputStyle} value={clubData.num_teams} onChange={(e) => handleClubField("num_teams", parseInt(e.target.value))}>
+                  {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Interne Notiz (optional)</label>
+                <textarea style={{ ...inputStyle, minHeight: 72, resize: "vertical" }} placeholder="Hat über Instagram angefragt..."
+                  value={clubData.internal_note} onChange={(e) => handleClubField("internal_note", e.target.value)} />
+              </div>
+              {step1Err && <div style={{ color: c.danger, fontSize: 12 }}>{step1Err}</div>}
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={() => {
+                  if (!clubData.name.trim() || !clubData.contact_email.trim()) { setStep1Err("Vereinsname und E-Mail sind Pflichtfelder."); return; }
+                  setStep1Err(""); setStep(2);
+                }} style={{ ...baseBtn, background: c.accent, color: "#000", padding: "10px 24px", fontSize: 13 }}>Weiter →</button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 2 */}
+          {step === 2 && (
+            <div>
+              <p style={{ color: c.textDim, fontSize: 13, marginBottom: 20 }}>Lege die Teams des Vereins an:</p>
+              {teamsData.map((team, i) => (
+                <div key={i} style={{ background: c.bg, borderRadius: 8, padding: 16, marginBottom: 14, border: `1px solid ${c.border}` }}>
+                  <div style={{ color: c.accent, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 }}>Team {i + 1}</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    {[
+                      { label: "Name *", field: "name", placeholder: "1. Herren" },
+                      { label: "Trainer Name", field: "trainer_name", placeholder: "Thomas Müller" },
+                      { label: "Trainer Mail *", field: "trainer_email", placeholder: "trainer@verein.de", type: "email" },
+                    ].map(({ label, field, placeholder, type }) => (
+                      <div key={field}>
+                        <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4, textTransform: "uppercase" }}>{label}</label>
+                        <input style={inputStyle} type={type || "text"} placeholder={placeholder}
+                          value={team[field]} onChange={(e) => handleTeamField(i, field, e.target.value)} />
+                      </div>
+                    ))}
+                    <div>
+                      <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4, textTransform: "uppercase" }}>Liga</label>
+                      <select style={inputStyle} value={team.liga} onChange={(e) => handleTeamField(i, "liga", e.target.value)}>
+                        {LIGA_OPTIONS.map((l) => <option key={l} value={l}>{l}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <button onClick={() => setTeamsData((p) => [...p, { name: "", liga: "Kreisliga A", trainer_name: "", trainer_email: "" }])}
+                style={{ ...baseBtn, background: "transparent", color: c.textDim, border: `1px dashed ${c.border}`, width: "100%", marginBottom: 20 }}>
+                + Weiteres Team hinzufügen
+              </button>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <button onClick={() => setStep(1)} style={{ ...baseBtn, background: c.surface, color: c.textDim, border: `1px solid ${c.border}` }}>← Zurück</button>
+                <button onClick={() => setStep(3)} style={{ ...baseBtn, background: c.accent, color: "#000", padding: "10px 24px", fontSize: 13 }}>Weiter →</button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3 */}
+          {step === 3 && (
+            <div>
+              <p style={{ color: c.textDim, fontSize: 13, marginBottom: 20 }}>Wir legen jetzt folgende Accounts an:</p>
+              {accounts.map((a, i) => (
+                <div key={i} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 8, padding: 14, marginBottom: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <span style={{ fontSize: 16 }}>👤</span>
+                    <span style={{ color: c.text, fontWeight: 600, fontSize: 13 }}>{a.label}</span>
+                    <Badge label={a.role === "club_admin" ? "Vereinsadmin" : "Trainer"} color={a.role === "club_admin" ? c.info : c.accent} />
+                  </div>
+                  <div style={{ color: c.textDim, fontSize: 12, marginLeft: 28 }}>{a.email || <span style={{ color: c.danger }}>Keine E-Mail angegeben</span>}</div>
+                </div>
+              ))}
+              {creating && (
+                <div style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 8, padding: 14, marginBottom: 16 }}>
+                  {log.map((l, i) => <div key={i} style={{ color: i === log.length - 1 ? c.accent : c.textMuted, fontSize: 12, padding: "3px 0" }}>{l}</div>)}
+                </div>
+              )}
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20 }}>
+                <button onClick={() => setStep(2)} disabled={creating} style={{ ...baseBtn, background: c.surface, color: c.textDim, border: `1px solid ${c.border}` }}>← Zurück</button>
+                <button onClick={handleCreate} disabled={creating} style={{ ...baseBtn, background: c.accent, color: "#000", padding: "10px 24px", fontSize: 13 }}>
+                  {creating ? "Wird angelegt..." : "Jetzt anlegen & Einladungen senden →"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 4 */}
+          {step === 4 && result && (
+            <div>
+              <div style={{ background: c.accentDim, border: `1px solid ${c.accent}33`, borderRadius: 8, padding: 16, marginBottom: 20 }}>
+                <div style={{ color: c.accent, fontWeight: 700, fontSize: 14, marginBottom: 8 }}>✅ {clubData.name} wurde erfolgreich angelegt</div>
+                <div style={{ color: c.textDim, fontSize: 12, marginTop: 6 }}>✓ Verein angelegt (Club-Plan, aktiv)</div>
+                <div style={{ color: c.textDim, fontSize: 12 }}>✓ {teamsData.length} Team{teamsData.length !== 1 ? "s" : ""} erstellt</div>
+                <div style={{ color: c.textDim, fontSize: 12 }}>✓ {result.results?.filter((r) => r.status === "invited").length || 0} Einladungs-Mails versendet</div>
+              </div>
+              <div style={{ color: c.textDim, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>Versendete Einladungen:</div>
+              {result.results?.map((r, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: `1px solid ${c.border}22` }}>
+                  <span style={{ fontSize: 14 }}>{r.status === "invited" ? "📧" : "❌"}</span>
+                  <span style={{ color: c.text, fontSize: 13, flex: 1 }}>{r.email}</span>
+                  <Badge label={r.role === "club_admin" ? "Vereinsadmin" : "Trainer"} color={r.role === "club_admin" ? c.info : c.accent} />
+                  {r.status === "error" && <span style={{ color: c.danger, fontSize: 11 }}>{r.error}</span>}
+                </div>
+              ))}
+              <div style={{ color: c.textDim, fontSize: 12, marginTop: 16, lineHeight: 1.6 }}>
+                Die Empfänger bekommen einen Magic Link per E-Mail. Nach dem ersten Login können sie sofort loslegen.
+              </div>
+              <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+                <button onClick={() => { onSuccess(result.club); onClose(); }}
+                  style={{ ...baseBtn, background: c.accentDim, color: c.accent, border: `1px solid ${c.accent}33`, flex: 1, padding: "10px" }}>
+                  Zur Vereinsübersicht
+                </button>
+                <button onClick={() => {
+                  setStep(1); setResult(null); setLog([]);
+                  setClubData({ name: "", contact_name: "", contact_email: "", contact_phone: "", num_teams: 1, internal_note: "" });
+                  setTeamsData([{ name: "", liga: "Kreisliga A", trainer_name: "", trainer_email: "" }]);
+                }} style={{ ...baseBtn, background: c.surface, color: c.textDim, border: `1px solid ${c.border}`, flex: 1, padding: "10px" }}>
+                  Weiteren Verein anlegen
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// Club Detail Modal
+// ============================================
+function ClubDetailModal({ club, onClose, onUpdate }) {
+  const [tab, setTab] = useState("overview");
+  const [status, setStatus] = useState(club.plan_status || "active");
+  const [trialEnds, setTrialEnds] = useState(club.trial_ends_at ? club.trial_ends_at.substring(0, 10) : "");
+  const [saving, setSaving] = useState(false);
+  const [teams, setTeams] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [newNote, setNewNote] = useState("");
+  const [profiles, setProfiles] = useState([]);
+
+  useEffect(() => {
+    const load = async () => {
+      const [tr, nr, pr] = await Promise.all([
+        supabase.from("teams").select("*").eq("club_id", club.id).order("name"),
+        supabase.from("admin_notes").select("*").eq("club_id", club.id).order("created_at", { ascending: false }),
+        supabase.from("profiles").select("*").eq("club_id", club.id),
+      ]);
+      setTeams(tr.data || []);
+      setNotes(nr.data || []);
+      setProfiles(pr.data || []);
+    };
+    load();
+  }, [club.id]);
+
+  const save = async () => {
+    setSaving(true);
+    await supabase.from("clubs").update({ plan_status: status, trial_ends_at: trialEnds || null }).eq("id", club.id);
+    onUpdate({ ...club, plan_status: status, trial_ends_at: trialEnds || null });
+    setSaving(false);
+  };
+
+  const extendTrial = async (days) => {
+    const base = trialEnds ? new Date(trialEnds) : new Date();
+    base.setDate(base.getDate() + days);
+    const d = base.toISOString().substring(0, 10);
+    setTrialEnds(d);
+    await supabase.from("clubs").update({ trial_ends_at: d }).eq("id", club.id);
+    onUpdate({ ...club, trial_ends_at: d });
+  };
+
+  const addNote = async () => {
+    if (!newNote.trim()) return;
+    const { data } = await supabase.from("admin_notes").insert({ club_id: club.id, note: newNote.trim() }).select().single();
+    if (data) setNotes([data, ...notes]);
+    setNewNote("");
+  };
+
+  return (
+    <Modal title={club.name} onClose={onClose} width={760}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+        <Badge label="Club" color={c.info} />
+        <Badge label={statusLabel(club.plan_status)} color={statusColor(club.plan_status)} />
+        <span style={{ color: c.textDim, fontSize: 12, marginLeft: "auto" }}>Seit {fmtDate(club.created_at)}</span>
+      </div>
+      <Tabs tabs={[
+        { key: "overview", label: "Übersicht" },
+        { key: "notes", label: `Notizen (${notes.length})` },
+        { key: "accounts", label: `Zugänge (${profiles.length})` },
+      ]} active={tab} onChange={setTab} />
+
+      {tab === "overview" && (
+        <div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+            {[{ l: "Ansprechpartner", v: club.contact_name }, { l: "E-Mail", v: club.contact_email }, { l: "Telefon", v: club.contact_phone }, { l: "Anzahl Teams", v: club.num_teams }].map(({ l, v }) => (
+              <div key={l} style={{ background: c.bg, borderRadius: 8, padding: "10px 14px", border: `1px solid ${c.border}` }}>
+                <div style={{ color: c.textDim, fontSize: 10, fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>{l}</div>
+                <div style={{ color: c.text, fontSize: 13 }}>{v || "—"}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 10 }}>
+            <div>
+              <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase" }}>Status</label>
+              <select style={inputStyle} value={status} onChange={(e) => setStatus(e.target.value)}>
+                <option value="trial">Trial</option><option value="active">Aktiv</option><option value="suspended">Gesperrt</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase" }}>Trial Ende</label>
+              <input style={inputStyle} type="date" value={trialEnds} onChange={(e) => setTrialEnds(e.target.value)} />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            {[30, 60, 90].map((d) => <button key={d} onClick={() => extendTrial(d)} style={{ ...baseBtn, background: c.warnDim, color: c.warn }}>+{d}d</button>)}
+          </div>
+          <button onClick={save} disabled={saving} style={{ ...baseBtn, background: c.accent, color: "#000", fontWeight: 700, padding: "9px 20px", marginBottom: 24 }}>
+            {saving ? "Speichern..." : "Änderungen speichern"}
+          </button>
+          <div style={{ color: c.textDim, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 12 }}>Teams ({teams.length})</div>
+          {teams.length === 0 && <div style={{ color: c.textDim, fontSize: 13 }}>Noch keine Teams.</div>}
+          {teams.map((t) => (
+            <div key={t.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${c.border}22` }}>
+              <div>
+                <div style={{ color: c.text, fontSize: 13, fontWeight: 600 }}>{t.name}</div>
+                <div style={{ color: c.textDim, fontSize: 11 }}>{t.liga || "—"} · {t.saison || "—"}</div>
+              </div>
+              <span onClick={() => navigator.clipboard.writeText(t.id)} title="ID kopieren"
+                style={{ color: c.textMuted, fontSize: 10, fontFamily: "monospace", cursor: "pointer", alignSelf: "center" }}>{t.id.substring(0, 8)}…</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === "notes" && (
+        <div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            <textarea value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder="Neue Admin-Notiz..."
+              style={{ ...inputStyle, minHeight: 72, resize: "vertical", flex: 1 }} />
+            <button onClick={addNote} style={{ ...baseBtn, background: c.accent, color: "#000", alignSelf: "flex-start", whiteSpace: "nowrap" }}>Hinzufügen</button>
+          </div>
+          {notes.length === 0 && <div style={{ color: c.textDim, fontSize: 13, textAlign: "center", padding: 24 }}>Noch keine Notizen.</div>}
+          {notes.map((n) => (
+            <div key={n.id} style={{ borderBottom: `1px solid ${c.border}`, padding: "10px 0" }}>
+              <div style={{ color: c.textDim, fontSize: 11, marginBottom: 4 }}>{fmtDateTime(n.created_at)}</div>
+              <div style={{ color: c.text, fontSize: 13, lineHeight: 1.5 }}>{n.note}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === "accounts" && (
+        <div>
+          {profiles.length === 0 && <div style={{ color: c.textDim, fontSize: 13, textAlign: "center", padding: 24 }}>Keine Zugänge gefunden.</div>}
+          {profiles.map((p) => (
+            <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${c.border}22` }}>
+              <div>
+                <div style={{ color: c.text, fontSize: 13, fontWeight: 600 }}>{[p.vorname, p.nachname].filter(Boolean).join(" ") || "—"}</div>
+                <div style={{ color: c.textDim, fontSize: 11 }}>{p.role || "user"}</div>
+              </div>
+              <Badge label={p.role === "club_admin" ? "Vereinsadmin" : p.role === "coach" ? "Trainer" : p.role || "User"}
+                color={p.role === "club_admin" ? c.info : c.accent} />
+            </div>
+          ))}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+// ============================================
+// Clubs List
+// ============================================
+function Clubs({ clubs, onUpdate, onNewClub }) {
+  const [selectedClub, setSelectedClub] = useState(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const filtered = clubs.filter((cl) => {
+    if (statusFilter !== "all" && cl.plan_status !== statusFilter) return false;
+    if (search && !cl.name.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  const toggleStatus = async (club) => {
+    const newStatus = club.plan_status === "suspended" ? "active" : "suspended";
+    await supabase.from("clubs").update({ plan_status: newStatus }).eq("id", club.id);
+    onUpdate({ ...club, plan_status: newStatus });
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <h2 style={{ color: c.text, fontSize: 20, fontWeight: 700 }}>Vereine / Clubs ({filtered.length})</h2>
+        <button onClick={onNewClub} style={{ ...baseBtn, background: c.accent, color: "#000", padding: "9px 18px" }}>+ Neuer Vereinskunde</button>
+      </div>
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+        <input style={{ ...inputStyle, width: 220 }} placeholder="Vereinsname suchen..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        <div style={{ display: "flex", gap: 4 }}>
+          {["all", "active", "trial", "suspended"].map((s) => (
+            <button key={s} onClick={() => setStatusFilter(s)}
+              style={{ ...baseBtn, background: statusFilter === s ? statusColor(s) + "22" : c.surface, color: statusFilter === s ? statusColor(s) : c.textDim, border: `1px solid ${statusFilter === s ? statusColor(s) + "44" : c.border}` }}>
+              {s === "all" ? "Alle" : statusLabel(s)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <Card style={{ padding: 0, overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 70px 100px 120px 160px", gap: 0 }}>
+          {["Vereinsname", "Ansprechpartner", "Teams", "Status", "Trial Ende", "Aktionen"].map((h) => (
+            <div key={h} style={{ color: c.textDim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, padding: "10px 16px", borderBottom: `1px solid ${c.border}` }}>{h}</div>
+          ))}
+          {filtered.length === 0 && (
+            <div style={{ gridColumn: "1/-1", padding: 40, color: c.textDim, textAlign: "center", fontSize: 13 }}>
+              Noch keine Vereine.{" "}
+              <span style={{ color: c.accent, cursor: "pointer" }} onClick={onNewClub}>Ersten Verein anlegen →</span>
+            </div>
+          )}
+          {filtered.map((cl) => {
+            const days = daysUntil(cl.trial_ends_at);
+            return [
+              <div key={`${cl.id}-n`} style={{ padding: "12px 16px", borderBottom: `1px solid ${c.border}22`, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                <span style={{ color: c.text, fontWeight: 600, fontSize: 13 }}>{cl.name}</span>
+                <span onClick={() => navigator.clipboard.writeText(cl.id)} title="ID kopieren"
+                  style={{ color: c.textMuted, fontSize: 10, fontFamily: "monospace", cursor: "pointer", marginTop: 2 }}>{cl.id}</span>
+              </div>,
+              <div key={`${cl.id}-c`} style={{ padding: "12px 16px", borderBottom: `1px solid ${c.border}22`, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                <span style={{ color: c.text, fontSize: 12 }}>{cl.contact_name || "—"}</span>
+                <span style={{ color: c.textDim, fontSize: 11 }}>{cl.contact_email}</span>
+              </div>,
+              <div key={`${cl.id}-t`} style={{ padding: "12px 16px", borderBottom: `1px solid ${c.border}22`, display: "flex", alignItems: "center", color: c.text, fontWeight: 700, fontSize: 16 }}>
+                {cl.num_teams || "—"}
+              </div>,
+              <div key={`${cl.id}-s`} style={{ padding: "12px 16px", borderBottom: `1px solid ${c.border}22`, display: "flex", alignItems: "center" }}>
+                <Badge label={statusLabel(cl.plan_status)} color={statusColor(cl.plan_status)} />
+              </div>,
+              <div key={`${cl.id}-d`} style={{ padding: "12px 16px", borderBottom: `1px solid ${c.border}22`, display: "flex", alignItems: "center" }}>
+                {cl.trial_ends_at
+                  ? <span style={{ color: days !== null && days <= 30 ? (days <= 7 ? c.danger : c.warn) : c.textDim, fontSize: 12 }}>
+                    {fmtDate(cl.trial_ends_at)}{days !== null && days <= 30 ? ` (${days}d)` : ""}
+                  </span>
+                  : <span style={{ color: c.textMuted, fontSize: 12 }}>—</span>}
+              </div>,
+              <div key={`${cl.id}-a`} style={{ padding: "12px 16px", borderBottom: `1px solid ${c.border}22`, display: "flex", alignItems: "center", gap: 6 }}>
+                <button onClick={() => setSelectedClub(cl)} style={{ ...baseBtn, background: c.accentDim, color: c.accent, border: `1px solid ${c.accent}33` }}>Details</button>
+                <button onClick={() => toggleStatus(cl)}
+                  style={{ ...baseBtn, background: cl.plan_status === "suspended" ? c.accentDim : c.dangerDim, color: cl.plan_status === "suspended" ? c.accent : c.danger, border: `1px solid ${cl.plan_status === "suspended" ? c.accent : c.danger}33` }}>
+                  {cl.plan_status === "suspended" ? "Aktivieren" : "Sperren"}
+                </button>
+              </div>,
+            ];
+          })}
+        </div>
+      </Card>
+      {selectedClub && (
+        <ClubDetailModal club={selectedClub} onClose={() => setSelectedClub(null)}
+          onUpdate={(updated) => { onUpdate(updated); setSelectedClub(updated); }} />
+      )}
+    </div>
+  );
+}
+
+// ============================================
 // Main App
 // ============================================
 export default function App() {
@@ -792,7 +1246,9 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState("dashboard");
   const [teams, setTeams] = useState([]);
+  const [clubs, setClubs] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
+  const [showClubWizard, setShowClubWizard] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -812,7 +1268,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (session) loadTeams();
+    if (session) { loadTeams(); loadClubs(); }
   }, [session]);
 
   const loadTeams = async () => {
@@ -822,16 +1278,23 @@ export default function App() {
     setDataLoading(false);
   };
 
+  const loadClubs = async () => {
+    const { data } = await supabase.from("clubs").select("*").order("created_at", { ascending: false });
+    setClubs(data || []);
+  };
+
   const handleLogin = (user, prof) => { setSession({ user }); setProfile(prof); };
   const handleLogout = async () => { await supabase.auth.signOut(); setSession(null); setProfile(null); };
   const updateTeam = (updated) => setTeams(teams.map((t) => t.id === updated.id ? updated : t));
+  const updateClub = (updated) => setClubs(clubs.map((cl) => cl.id === updated.id ? updated : cl));
 
   if (loading) return <div style={{ minHeight: "100vh", background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", color: c.textDim }}>Laden...</div>;
   if (!session) return <LoginScreen onLogin={handleLogin} />;
 
   const NAV = [
     { key: "dashboard", label: "Dashboard", icon: "▦" },
-    { key: "customers", label: "Kunden", icon: "◉" },
+    { key: "customers", label: "Kunden (Teams)", icon: "◉" },
+    { key: "clubs", label: "Vereine (Clubs)", icon: "◎" },
     { key: "requests", label: "Feature Requests", icon: "◈" },
     { key: "settings", label: "Einstellungen", icon: "⚙" },
   ];
@@ -843,7 +1306,12 @@ export default function App() {
         <div style={{ padding: "20px 16px 16px", borderBottom: `1px solid ${c.border}` }}>
           <Logo size={22} />
         </div>
-        <nav style={{ flex: 1, padding: "12px 8px" }}>
+        <nav style={{ flex: 1, padding: "12px 8px", overflow: "auto" }}>
+          {/* CTA: Neuer Vereinskunde */}
+          <button onClick={() => setShowClubWizard(true)}
+            style={{ ...baseBtn, width: "100%", textAlign: "left", background: c.accent, color: "#000", padding: "9px 12px", marginBottom: 10, display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 12, borderRadius: 8 }}>
+            <span style={{ fontSize: 15 }}>＋</span> Neuer Vereinskunde
+          </button>
           {NAV.map((n) => (
             <button key={n.key} onClick={() => setPage(n.key)}
               style={{ ...baseBtn, width: "100%", textAlign: "left", background: page === n.key ? c.accentDim : "transparent", color: page === n.key ? c.accent : c.textDim, padding: "9px 12px", marginBottom: 2, display: "flex", alignItems: "center", gap: 10, fontWeight: page === n.key ? 700 : 500, fontSize: 13, borderRadius: 8 }}>
@@ -864,17 +1332,26 @@ export default function App() {
 
       {/* Content */}
       <div style={{ flex: 1, padding: 28, overflowY: "auto" }}>
-        {dataLoading && page !== "requests" && page !== "settings" ? (
+        {dataLoading && page !== "requests" && page !== "settings" && page !== "clubs" ? (
           <div style={{ color: c.textDim, textAlign: "center", paddingTop: 60 }}>Daten werden geladen...</div>
         ) : (
           <>
             {page === "dashboard" && <Dashboard teams={teams} />}
             {page === "customers" && <Customers teams={teams} onUpdate={updateTeam} />}
+            {page === "clubs" && <Clubs clubs={clubs} onUpdate={updateClub} onNewClub={() => setShowClubWizard(true)} />}
             {page === "requests" && <FeatureRequests />}
             {page === "settings" && <Settings currentUser={session?.user} />}
           </>
         )}
       </div>
+
+      {/* Club Onboarding Wizard */}
+      {showClubWizard && (
+        <ClubOnboardingWizard
+          onClose={() => setShowClubWizard(false)}
+          onSuccess={(club) => { setClubs([club, ...clubs]); setPage("clubs"); setShowClubWizard(false); }}
+        />
+      )}
     </div>
   );
 }
