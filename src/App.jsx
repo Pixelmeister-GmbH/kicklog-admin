@@ -2,12 +2,80 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 // ============================================
-// Supabase Client (Service Role — bypasses RLS)
+// Supabase Setup
 // ============================================
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
-);
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SERVICE_ROLE_KEY = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+// Anon key is public — used only for auth (signIn/signOut/session)
+const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3Y3ZpYnN5c25tY2lrdnlscmdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MDQ4NTAsImV4cCI6MjA4ODk4MDg1MH0.rUUH4_G8oV5CtyIKvihok9rTQcdcGBMpswy8TBugqZY";
+
+// Auth client — anon key is allowed in browser
+const supabase = createClient(SUPABASE_URL, ANON_KEY);
+
+// Admin REST helpers — service role key via direct fetch (bypasses RLS)
+const AH = () => ({
+  "Content-Type": "application/json",
+  "apikey": SERVICE_ROLE_KEY,
+  "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+});
+
+async function dbGet(table, params = "") {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`, { headers: AH() });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+async function dbGetOne(table, params = "") {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`, {
+    headers: { ...AH(), "Accept": "application/vnd.pgrst.object+json" },
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+async function dbCount(table, filter = "") {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=id${filter}`, {
+    headers: { ...AH(), "Prefer": "count=exact" },
+  });
+  const range = res.headers.get("Content-Range");
+  return parseInt(range?.split("/")[1] || "0");
+}
+
+async function dbInsert(table, body) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: "POST",
+    headers: { ...AH(), "Prefer": "return=representation" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return Array.isArray(data) ? data[0] : data;
+}
+
+async function dbUpdate(table, filter, body) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`, {
+    method: "PATCH",
+    headers: { ...AH(), "Prefer": "return=representation" },
+    body: JSON.stringify(body),
+  });
+  return res.ok;
+}
+
+async function authAdminGet(path) {
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/${path}`, { headers: AH() });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+async function authAdminPost(path, body) {
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/${path}`, {
+    method: "POST",
+    headers: AH(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
 
 // ============================================
 // Design System
@@ -145,8 +213,8 @@ function LoginScreen({ onLogin }) {
     try {
       const { data, error: authErr } = await supabase.auth.signInWithPassword({ email, password });
       if (authErr) throw authErr;
-      // Check super_admin role
-      const { data: profile } = await supabase.from("profiles").select("role, vorname, nachname").eq("id", data.user.id).single();
+      // Check super_admin role via admin REST
+      const profile = await dbGetOne("profiles", `?id=eq.${data.user.id}&select=role,vorname,nachname`);
       if (!profile || profile.role !== "super_admin") {
         await supabase.auth.signOut();
         setError("Kein Zugriff. Nur Super-Admins können sich hier einloggen.");
@@ -220,34 +288,34 @@ function CustomerDetailModal({ team, onClose, onUpdate }) {
 
   const loadData = async () => {
     // Stats
-    const [playersRes, matchesRes, trainingsRes, membersRes] = await Promise.all([
-      supabase.from("players").select("id", { count: "exact", head: true }).eq("team_id", team.id),
-      supabase.from("matches").select("id", { count: "exact", head: true }).eq("team_id", team.id),
-      supabase.from("trainings").select("id", { count: "exact", head: true }).eq("team_id", team.id),
-      supabase.from("profiles").select("id", { count: "exact", head: true }).eq("team_id", team.id),
+    const [players, matches, trainings, members] = await Promise.all([
+      dbCount("players", `&team_id=eq.${team.id}`),
+      dbCount("matches", `&team_id=eq.${team.id}`),
+      dbCount("trainings", `&team_id=eq.${team.id}`),
+      dbCount("profiles", `&team_id=eq.${team.id}`),
     ]);
-    setStats({ players: playersRes.count || 0, matches: matchesRes.count || 0, trainings: trainingsRes.count || 0, members: membersRes.count || 0 });
+    setStats({ players, matches, trainings, members });
 
     // Notes
-    const { data: notesData } = await supabase.from("admin_notes").select("*").eq("team_id", team.id).order("created_at", { ascending: false });
-    setNotes(notesData || []);
+    const notesData = await dbGet("admin_notes", `?team_id=eq.${team.id}&order=created_at.desc`);
+    setNotes(notesData);
 
     // Feature flags
-    const { data: flagsData } = await supabase.from("feature_flags").select("*").eq("team_id", team.id);
+    const flagsData = await dbGet("feature_flags", `?team_id=eq.${team.id}`);
     const flagMap = {};
     FEATURES.forEach((f) => { flagMap[f.key] = false; });
-    (flagsData || []).forEach((f) => { flagMap[f.feature_key] = f.enabled; });
+    flagsData.forEach((f) => { flagMap[f.feature_key] = f.enabled; });
     setFlags(flagMap);
 
     // Feature requests
-    const { data: reqData } = await supabase.from("feature_requests").select("*").eq("team_id", team.id).order("created_at", { ascending: false });
-    setRequests(reqData || []);
+    const reqData = await dbGet("feature_requests", `?team_id=eq.${team.id}&order=created_at.desc`);
+    setRequests(reqData);
   };
 
   const saveOverview = async () => {
     setSaving(true);
     const body = { plan, plan_status: status, trial_ends_at: trialEnds || null };
-    await supabase.from("teams").update(body).eq("id", team.id);
+    await dbUpdate("teams", `id=eq.${team.id}`, body);
     onUpdate({ ...team, ...body });
     setSaving(false);
   };
@@ -257,13 +325,13 @@ function CustomerDetailModal({ team, onClose, onUpdate }) {
     base.setDate(base.getDate() + days);
     const newDate = base.toISOString().substring(0, 10);
     setTrialEnds(newDate);
-    await supabase.from("teams").update({ trial_ends_at: newDate }).eq("id", team.id);
+    await dbUpdate("teams", `id=eq.${team.id}`, { trial_ends_at: newDate });
     onUpdate({ ...team, trial_ends_at: newDate });
   };
 
   const addNote = async () => {
     if (!newNote.trim()) return;
-    const { data } = await supabase.from("admin_notes").insert({ team_id: team.id, note: newNote.trim() }).select().single();
+    const data = await dbInsert("admin_notes", { team_id: team.id, note: newNote.trim() });
     if (data) setNotes([data, ...notes]);
     setNewNote("");
   };
@@ -271,16 +339,16 @@ function CustomerDetailModal({ team, onClose, onUpdate }) {
   const toggleFlag = async (key, current) => {
     const newVal = !current;
     setFlags({ ...flags, [key]: newVal });
-    const existing = await supabase.from("feature_flags").select("id").eq("team_id", team.id).eq("feature_key", key).single();
-    if (existing.data) {
-      await supabase.from("feature_flags").update({ enabled: newVal }).eq("id", existing.data.id);
+    const existing = await dbGetOne("feature_flags", `?team_id=eq.${team.id}&feature_key=eq.${key}&select=id`);
+    if (existing) {
+      await dbUpdate("feature_flags", `id=eq.${existing.id}`, { enabled: newVal });
     } else {
-      await supabase.from("feature_flags").insert({ team_id: team.id, feature_key: key, enabled: newVal });
+      await dbInsert("feature_flags", { team_id: team.id, feature_key: key, enabled: newVal });
     }
   };
 
   const updateRequestStatus = async (id, newStatus) => {
-    await supabase.from("feature_requests").update({ status: newStatus }).eq("id", id);
+    await dbUpdate("feature_requests", `id=eq.${id}`, { status: newStatus });
     setRequests(requests.map((r) => r.id === id ? { ...r, status: newStatus } : r));
   };
 
@@ -499,14 +567,13 @@ function Customers({ teams, onUpdate }) {
   });
 
   const impersonate = async (teamId) => {
-    // Find a user belonging to this team
-    const { data: profile } = await supabase.from("profiles").select("id").eq("team_id", teamId).limit(1).single();
+    const profile = await dbGetOne("profiles", `?team_id=eq.${teamId}&select=id&limit=1`);
     if (!profile) { alert("Kein Nutzer für dieses Team gefunden."); return; }
-    const { data: user } = await supabase.auth.admin.getUserById(profile.id);
-    if (!user?.user?.email) { alert("E-Mail nicht gefunden."); return; }
-    const { data: linkData } = await supabase.auth.admin.generateLink({ type: "magiclink", email: user.user.email });
-    if (linkData?.properties?.action_link) {
-      window.open(linkData.properties.action_link, "_blank");
+    const user = await authAdminGet(`users/${profile.id}`);
+    if (!user?.email) { alert("E-Mail nicht gefunden."); return; }
+    const linkData = await authAdminPost("generate_link", { type: "magiclink", email: user.email });
+    if (linkData?.action_link) {
+      window.open(linkData.action_link, "_blank");
     } else {
       alert("Magic Link konnte nicht generiert werden.");
     }
@@ -615,19 +682,19 @@ function FeatureRequests() {
 
   const loadRequests = async () => {
     setLoading(true);
-    const { data } = await supabase.from("feature_requests").select("*, teams(name)").order("created_at", { ascending: false });
-    setRequests(data || []);
+    const data = await dbGet("feature_requests", "?order=created_at.desc&select=*,teams(name)");
+    setRequests(data);
     setLoading(false);
   };
 
   const changeStatus = async (id, newStatus) => {
-    await supabase.from("feature_requests").update({ status: newStatus }).eq("id", id);
+    await dbUpdate("feature_requests", `id=eq.${id}`, { status: newStatus });
     setRequests(requests.map((r) => r.id === id ? { ...r, status: newStatus } : r));
   };
 
   const createRequest = async () => {
     if (!newForm.title.trim()) return;
-    const { data } = await supabase.from("feature_requests").insert(newForm).select().single();
+    const data = await dbInsert("feature_requests", newForm);
     if (data) setRequests([data, ...requests]);
     setNewForm({ title: "", description: "", priority: "medium", status: "open" });
     setShowNew(false);
@@ -724,17 +791,17 @@ function Settings({ currentUser }) {
   useEffect(() => { loadAdmins(); }, []);
 
   const loadAdmins = async () => {
-    const { data } = await supabase.from("profiles").select("id, vorname, nachname").eq("role", "super_admin");
-    setAdmins(data || []);
+    const data = await dbGet("profiles", "?role=eq.super_admin&select=id,vorname,nachname");
+    setAdmins(data);
   };
 
   const addAdmin = async () => {
     if (!newAdminEmail.trim()) return;
     setAdding(true); setMsg("");
-    const { data: user } = await supabase.auth.admin.listUsers();
-    const found = user?.users?.find((u) => u.email === newAdminEmail.trim());
+    const res = await authAdminGet("users?per_page=1000");
+    const found = res?.users?.find((u) => u.email === newAdminEmail.trim());
     if (!found) { setMsg("Nutzer mit dieser E-Mail nicht gefunden."); setAdding(false); return; }
-    await supabase.from("profiles").update({ role: "super_admin" }).eq("id", found.id);
+    await dbUpdate("profiles", `id=eq.${found.id}`, { role: "super_admin" });
     setMsg("Admin hinzugefügt.");
     setNewAdminEmail("");
     loadAdmins();
@@ -788,7 +855,7 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
-        const { data: p } = await supabase.from("profiles").select("role, vorname, nachname").eq("id", session.user.id).single();
+        const p = await dbGetOne("profiles", `?id=eq.${session.user.id}&select=role,vorname,nachname`);
         if (p?.role === "super_admin") { setSession(session); setProfile(p); }
         else await supabase.auth.signOut();
       }
@@ -806,8 +873,8 @@ export default function App() {
 
   const loadTeams = async () => {
     setDataLoading(true);
-    const { data } = await supabase.from("teams").select("*").order("created_at", { ascending: false });
-    setTeams(data || []);
+    const data = await dbGet("teams", "?order=created_at.desc");
+    setTeams(data);
     setDataLoading(false);
   };
 
