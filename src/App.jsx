@@ -13,10 +13,10 @@ const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 const supabase = createClient(SUPABASE_URL, ANON_KEY);
 
 // Admin REST helpers — service role key via direct fetch (bypasses RLS)
-const AH = () => ({
-  "Content-Type": "application/json",
+// Note: sb_secret_ keys are NOT valid JWTs — only send as apikey header, not as Bearer token
+const AH = (json = false) => ({
   "apikey": SERVICE_ROLE_KEY,
-  "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+  ...(json ? { "Content-Type": "application/json" } : {}),
 });
 
 async function dbGet(table, params = "") {
@@ -43,7 +43,7 @@ async function dbCount(table, filter = "") {
 async function dbInsert(table, body) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
     method: "POST",
-    headers: { ...AH(), "Prefer": "return=representation" },
+    headers: { ...AH(true), "Prefer": "return=representation" },
     body: JSON.stringify(body),
   });
   if (!res.ok) return null;
@@ -54,7 +54,7 @@ async function dbInsert(table, body) {
 async function dbUpdate(table, filter, body) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`, {
     method: "PATCH",
-    headers: { ...AH(), "Prefer": "return=representation" },
+    headers: { ...AH(true), "Prefer": "return=representation" },
     body: JSON.stringify(body),
   });
   return res.ok;
@@ -69,7 +69,7 @@ async function authAdminGet(path) {
 async function authAdminPost(path, body) {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/${path}`, {
     method: "POST",
-    headers: AH(),
+    headers: AH(true),
     body: JSON.stringify(body),
   });
   if (!res.ok) return null;
