@@ -500,8 +500,9 @@ function Customers({ teams, onUpdate }) {
   });
 
   const impersonate = async (teamId) => {
-    const { data: profile } = await supabaseAdmin.from("profiles").select("id").eq("team_id", teamId).limit(1).maybeSingle();
-    if (!profile) { alert("Kein Nutzer für dieses Team gefunden."); return; }
+    // DB-Query mit authenticated admin session (supabase), auth-ops mit supabaseAdmin
+    const { data: profile, error: profErr } = await supabase.from("profiles").select("id").eq("team_id", teamId).limit(1).maybeSingle();
+    if (profErr || !profile) { alert("Kein Nutzer für dieses Team gefunden.\n" + (profErr?.message || "")); return; }
     const { data: { user }, error: userErr } = await supabaseAdmin.auth.admin.getUserById(profile.id);
     if (userErr || !user?.email) {
       alert(`Auth-User nicht gefunden (${userErr?.message || "kein Email"}).\nProfil-ID: ${profile.id}`);
