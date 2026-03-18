@@ -500,9 +500,10 @@ function Customers({ teams, onUpdate }) {
   });
 
   const impersonate = async (teamId) => {
-    // DB-Query mit authenticated admin session (supabase), auth-ops mit supabaseAdmin
-    const { data: profile, error: profErr } = await supabase.from("profiles").select("id").eq("team_id", teamId).limit(1).maybeSingle();
-    if (profErr || !profile) { alert("Kein Nutzer für dieses Team gefunden.\n" + (profErr?.message || "")); return; }
+    // supabaseAdmin bypasses RLS — zuverlässiger als authenticated supabase client
+    const { data: profiles, error: profErr } = await supabaseAdmin.from("profiles").select("id").eq("team_id", teamId).limit(1);
+    const profile = profiles?.[0];
+    if (profErr || !profile) { alert("Kein Nutzer für dieses Team gefunden.\n" + (profErr?.message || "Keine Profile mit dieser team_id")); return; }
     const { data: { user }, error: userErr } = await supabaseAdmin.auth.admin.getUserById(profile.id);
     if (userErr || !user?.email) {
       alert(`Auth-User nicht gefunden (${userErr?.message || "kein Email"}).\nProfil-ID: ${profile.id}`);
