@@ -165,18 +165,15 @@ function LoginScreen({ onLogin }) {
     try {
       const { data, error: authErr } = await supabase.auth.signInWithPassword({ email, password });
       if (authErr) throw authErr;
-      // Check super_admin role via SDK (uses user session JWT, avoids service role key issues)
-      const { data: profileData, error: profileErr } = await supabase
-        .from("profiles")
-        .select("role, vorname, nachname")
-        .eq("id", data.user.id)
-        .single();
-      if (profileErr || !profileData || profileData.role !== "super_admin") {
+      // Check role from app_metadata (set by admin, no DB query needed)
+      const role = data.user?.app_metadata?.role;
+      if (role !== "super_admin") {
         await supabase.auth.signOut();
         setError("Kein Zugriff. Nur Super-Admins können sich hier einloggen.");
         setLoading(false); return;
       }
-      onLogin(data.user, profileData);
+      const profile = { role, vorname: data.user.user_metadata?.vorname || "", nachname: data.user.user_metadata?.nachname || "" };
+      onLogin(data.user, profile);
     } catch (err) {
       setError(err.message || "Login fehlgeschlagen.");
     }
@@ -804,9 +801,11 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
-        const { data: p } = await supabase.from("profiles").select("role, vorname, nachname").eq("id", session.user.id).single();
-        if (p?.role === "super_admin") { setSession(session); setProfile(p); }
-        else await supabase.auth.signOut();
+        const role = session.user?.app_metadata?.role;
+        if (role === "super_admin") {
+          setSession(session);
+          setProfile({ role, vorname: session.user.user_metadata?.vorname || "", nachname: session.user.user_metadata?.nachname || "" });
+        } else await supabase.auth.signOut();
       }
       setLoading(false);
     });
