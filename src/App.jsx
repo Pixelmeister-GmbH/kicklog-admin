@@ -9,25 +9,12 @@ const SERVICE_ROLE_KEY = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 // Anon key is public — used only for auth (signIn/signOut/session)
 const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3Y3ZpYnN5c25tY2lrdnlscmdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MDQ4NTAsImV4cCI6MjA4ODk4MDg1MH0.rUUH4_G8oV5CtyIKvihok9rTQcdcGBMpswy8TBugqZY";
 
-// Auth client — anon key is allowed in browser
+// Auth client — anon key for login/logout
 const supabase = createClient(SUPABASE_URL, ANON_KEY);
-
-// Auth Admin API helpers — beide Header nötig für /auth/v1/admin/* Endpoints
-const ADMIN_H = { "apikey": SERVICE_ROLE_KEY, "Authorization": `Bearer ${SERVICE_ROLE_KEY}`, "Content-Type": "application/json" };
-async function authAdminGet(path) {
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/${path}`, { headers: ADMIN_H });
-  if (!res.ok) return null;
-  return res.json();
-}
-async function authAdminPost(path, body) {
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/${path}`, {
-    method: "POST", headers: ADMIN_H, body: JSON.stringify(body),
-  });
-  if (!res.ok) return null;
-  return res.json();
-}
-// All DB access uses supabase SDK — user session JWT is used automatically after login
-// RLS policies grant super_admins full access to all tables
+// Admin client — service role key for admin operations (bypasses RLS)
+const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
 
 // ============================================
 // Design System
@@ -513,23 +500,23 @@ function Customers({ teams, onUpdate }) {
   });
 
   const impersonate = async (teamId) => {
-    const { data: profile } = await supabase.from("profiles").select("id").eq("team_id", teamId).limit(1).maybeSingle();
+    const { data: profile } = await supabaseAdmin.from("profiles").select("id").eq("team_id", teamId).limit(1).maybeSingle();
     if (!profile) { alert("Kein Nutzer für dieses Team gefunden."); return; }
-    const user = await authAdminGet(`users/${profile.id}`);
-    if (!user?.email) {
-      alert(`Kein Auth-User für Profil ${profile.id} gefunden.\n\nMögliche Ursache: Service Role Key fehlt oder falsch in den Umgebungsvariablen.`);
+    const { data: { user }, error: userErr } = await supabaseAdmin.auth.admin.getUserById(profile.id);
+    if (userErr || !user?.email) {
+      alert(`Auth-User nicht gefunden (${userErr?.message || "kein Email"}).\nProfil-ID: ${profile.id}`);
       return;
     }
-    const linkData = await authAdminPost("generate_link", {
+    const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",
       email: user.email,
-      options: { redirect_to: "https://app.kicklog.de" },
+      options: { redirectTo: "https://app.kicklog.de" },
     });
-    if (linkData?.action_link) {
-      window.open(linkData.action_link, "_blank");
-    } else {
-      alert("Magic Link konnte nicht generiert werden. Antwort: " + JSON.stringify(linkData));
+    if (linkErr || !linkData?.properties?.action_link) {
+      alert("Magic Link Fehler: " + (linkErr?.message || JSON.stringify(linkData)));
+      return;
     }
+    window.open(linkData.properties.action_link, "_blank");
   };
 
   return (
@@ -751,8 +738,9 @@ function Settings({ currentUser }) {
   const addAdmin = async () => {
     if (!newAdminEmail.trim()) return;
     setAdding(true); setMsg("");
-    const res = await authAdminGet("users?per_page=1000");
-    const found = res?.users?.find((u) => u.email === newAdminEmail.trim());
+    const { data: { users }, error: listErr } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+    if (listErr) { setMsg("Fehler: " + listErr.message); setAdding(false); return; }
+    const found = users?.find((u) => u.email === newAdminEmail.trim());
     if (!found) { setMsg("Nutzer mit dieser E-Mail nicht gefunden."); setAdding(false); return; }
     await supabase.from("profiles").update({ role: "super_admin" }).eq("id", found.id);
     setMsg("Admin hinzugefügt.");
