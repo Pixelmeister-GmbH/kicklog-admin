@@ -26,11 +26,10 @@ async function dbGet(table, params = "") {
 }
 
 async function dbGetOne(table, params = "") {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`, {
-    headers: { ...AH(), "Accept": "application/vnd.pgrst.object+json" },
-  });
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}&limit=1`, { headers: AH() });
   if (!res.ok) return null;
-  return res.json();
+  const data = await res.json();
+  return Array.isArray(data) ? (data[0] ?? null) : data;
 }
 
 async function dbCount(table, filter = "") {
