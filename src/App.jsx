@@ -248,6 +248,7 @@ function CustomerDetailModal({ team, onClose, onUpdate }) {
   const saveOverview = async () => {
     setSaving(true);
     const body = { plan, plan_status: status, trial_ends_at: trialEnds || null };
+    if (status === "suspended") body.invoice_created = false;
     await supabase.from("teams").update(body).eq("id", team.id);
     onUpdate({ ...team, ...body });
     setSaving(false);
@@ -499,6 +500,12 @@ function Customers({ teams, onUpdate }) {
     return true;
   });
 
+  const toggleInvoice = async (t) => {
+    const newVal = !t.invoice_created;
+    await supabaseAdmin.from("teams").update({ invoice_created: newVal }).eq("id", t.id);
+    onUpdate({ ...t, invoice_created: newVal });
+  };
+
   const impersonate = async (teamId) => {
     // Edge Function server-side — bypasses "Forbidden use of secret API key in browser"
     const { data: { session } } = await supabase.auth.getSession();
@@ -544,9 +551,9 @@ function Customers({ teams, onUpdate }) {
 
       {/* Table */}
       <Card style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 80px 100px 110px 110px 160px", gap: 0 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 80px 100px 110px 110px 110px 160px", gap: 0 }}>
           {/* Header */}
-          {["Name", "Plan", "Status", "Erstellt", "Trial Ende", "Aktionen"].map((h) => (
+          {["Name", "Plan", "Status", "Erstellt", "Trial Ende", "Rechnung", "Aktionen"].map((h) => (
             <div key={h} style={{ color: c.textDim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, padding: "10px 16px", borderBottom: `1px solid ${c.border}` }}>{h}</div>
           ))}
           {/* Rows */}
@@ -580,6 +587,21 @@ function Customers({ teams, onUpdate }) {
                     {fmtDate(t.trial_ends_at)}{days !== null && days <= 14 ? ` (${days}d)` : ""}
                   </span>
                 ) : <span style={{ color: c.textMuted, fontSize: 12 }}>—</span>}
+              </div>,
+              <div key={`${t.id}-invoice`} style={{ padding: "12px 16px", borderBottom: `1px solid ${c.border}22`, display: "flex", alignItems: "center" }}>
+                <button
+                  onClick={() => toggleInvoice(t)}
+                  title={t.invoice_created ? "Rechnung erstellt — klicken zum Zurücksetzen" : "Rechnung noch nicht erstellt — klicken zum Bestätigen"}
+                  style={{
+                    ...baseBtn,
+                    background: t.invoice_created ? c.accentDim : c.surface,
+                    color: t.invoice_created ? c.accent : c.textMuted,
+                    border: `1px solid ${t.invoice_created ? c.accent + "44" : c.border}`,
+                    fontSize: 11,
+                    padding: "5px 10px",
+                  }}>
+                  {t.invoice_created ? "✓ Erstellt" : "— Offen"}
+                </button>
               </div>,
               <div key={`${t.id}-actions`} style={{ padding: "12px 16px", borderBottom: `1px solid ${c.border}22`, display: "flex", alignItems: "center", gap: 6 }}>
                 <button onClick={() => setSelectedTeam(t)} style={{ ...baseBtn, background: c.accentDim, color: c.accent, border: `1px solid ${c.accent}33` }}>Details</button>
