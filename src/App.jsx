@@ -487,11 +487,93 @@ function Dashboard({ teams }) {
 // ============================================
 // Customers List
 // ============================================
-function Customers({ teams, onUpdate }) {
+function CreateTeamModal({ onClose, onCreate }) {
+  const [name, setName] = useState("");
+  const [saison, setSaison] = useState("2025/2026");
+  const [liga, setLiga] = useState("");
+  const [plan, setPlan] = useState("team");
+  const [status, setStatus] = useState("trial");
+  const [trialMonths, setTrialMonths] = useState(12);
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (!name.trim()) { alert("Teamname ist Pflicht."); return; }
+    setSaving(true);
+    const trialEnd = new Date();
+    trialEnd.setMonth(trialEnd.getMonth() + trialMonths);
+    const body = {
+      name: name.trim(),
+      saison: saison.trim() || null,
+      liga: liga.trim() || null,
+      plan,
+      plan_status: status,
+      trial_ends_at: status === "trial" ? trialEnd.toISOString() : null,
+    };
+    const { data, error } = await supabaseAdmin.from("teams").insert(body).select().single();
+    if (error) { alert("Fehler: " + error.message); setSaving(false); return; }
+    onCreate(data);
+    onClose();
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#000a", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={onClose}>
+      <div style={{ background: c.surface, border: `1px solid ${c.border}`, borderRadius: 12, width: 440, padding: 28 }} onClick={(e) => e.stopPropagation()}>
+        <h3 style={{ color: c.text, fontSize: 18, fontWeight: 700, marginBottom: 20 }}>Neues Team anlegen</h3>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div>
+            <label style={{ color: c.textDim, fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Teamname *</label>
+            <input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} placeholder="z.B. U15 FC Beispiel" />
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ color: c.textDim, fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Saison</label>
+              <input style={inputStyle} value={saison} onChange={(e) => setSaison(e.target.value)} placeholder="2025/2026" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ color: c.textDim, fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Liga</label>
+              <input style={inputStyle} value={liga} onChange={(e) => setLiga(e.target.value)} placeholder="z.B. Kreisliga A" />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ color: c.textDim, fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Plan</label>
+              <select style={{ ...inputStyle, cursor: "pointer" }} value={plan} onChange={(e) => setPlan(e.target.value)}>
+                <option value="team">Team</option>
+                <option value="club">Club</option>
+              </select>
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ color: c.textDim, fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Status</label>
+              <select style={{ ...inputStyle, cursor: "pointer" }} value={status} onChange={(e) => setStatus(e.target.value)}>
+                <option value="trial">Trial</option>
+                <option value="active">Aktiv</option>
+              </select>
+            </div>
+          </div>
+          {status === "trial" && (
+            <div>
+              <label style={{ color: c.textDim, fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Trial-Dauer (Monate)</label>
+              <input style={{ ...inputStyle, width: 100 }} type="number" min={1} max={24} value={trialMonths} onChange={(e) => setTrialMonths(Number(e.target.value))} />
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 24 }}>
+          <button onClick={onClose} style={{ ...baseBtn, background: c.surface, color: c.textDim, border: `1px solid ${c.border}` }}>Abbrechen</button>
+          <button onClick={save} disabled={saving} style={{ ...baseBtn, background: c.accent, color: "#000" }}>{saving ? "Wird erstellt..." : "Team erstellen"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Customers({ teams, onUpdate, onCreateTeam }) {
   const [planFilter, setPlanFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [selectedTeam, setSelectedTeam] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const filtered = teams.filter((t) => {
     if (planFilter !== "all" && t.plan !== planFilter) return false;
@@ -526,6 +608,7 @@ function Customers({ teams, onUpdate }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <h2 style={{ color: c.text, fontSize: 20, fontWeight: 700 }}>Kunden ({filtered.length})</h2>
+        <button onClick={() => setShowCreateModal(true)} style={{ ...baseBtn, background: c.accent, color: "#000", fontSize: 13 }}>+ Neues Team</button>
       </div>
 
       {/* Filters */}
@@ -617,6 +700,13 @@ function Customers({ teams, onUpdate }) {
           team={selectedTeam}
           onClose={() => setSelectedTeam(null)}
           onUpdate={(updated) => { onUpdate(updated); setSelectedTeam(updated); }}
+        />
+      )}
+
+      {showCreateModal && (
+        <CreateTeamModal
+          onClose={() => setShowCreateModal(false)}
+          onCreate={(newTeam) => onCreateTeam(newTeam)}
         />
       )}
     </div>
@@ -1359,7 +1449,7 @@ export default function App() {
         ) : (
           <>
             {page === "dashboard" && <Dashboard teams={teams} />}
-            {page === "customers" && <Customers teams={teams} onUpdate={updateTeam} />}
+            {page === "customers" && <Customers teams={teams} onUpdate={updateTeam} onCreateTeam={(t) => setTeams((prev) => [t, ...prev])} />}
             {page === "clubs" && <Clubs clubs={clubs} onUpdate={updateClub} onNewClub={() => setShowClubWizard(true)} />}
             {page === "requests" && <FeatureRequests />}
             {page === "settings" && <Settings currentUser={session?.user} />}
