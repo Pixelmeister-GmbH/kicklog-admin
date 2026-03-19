@@ -494,24 +494,40 @@ function CreateTeamModal({ onClose, onCreate }) {
   const [plan, setPlan] = useState("team");
   const [status, setStatus] = useState("trial");
   const [trialMonths, setTrialMonths] = useState(12);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
     if (!name.trim()) { alert("Teamname ist Pflicht."); return; }
+    if (email && !password) { alert("Bitte Passwort eingeben."); return; }
+    if (password && !email) { alert("Bitte E-Mail eingeben."); return; }
     setSaving(true);
+
     const trialEnd = new Date();
     trialEnd.setMonth(trialEnd.getMonth() + trialMonths);
-    const body = {
-      name: name.trim(),
-      saison: saison.trim() || null,
-      liga: liga.trim() || null,
-      plan,
-      plan_status: status,
-      trial_ends_at: status === "trial" ? trialEnd.toISOString() : null,
-    };
-    const { data, error } = await supabaseAdmin.from("teams").insert(body).select().single();
-    if (error) { alert("Fehler: " + error.message); setSaving(false); return; }
-    onCreate(data);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) { alert("Nicht eingeloggt."); setSaving(false); return; }
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-create-team`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: name.trim(),
+        saison: saison.trim() || null,
+        liga: liga.trim() || null,
+        plan,
+        plan_status: status,
+        trial_ends_at: status === "trial" ? trialEnd.toISOString() : null,
+        email: email.trim() || null,
+        password: password || null,
+      }),
+    });
+    const json = await res.json();
+    if (!res.ok || json.error) { alert("Fehler: " + (json.error || res.statusText)); setSaving(false); return; }
+    onCreate(json.team);
     onClose();
   };
 
@@ -557,6 +573,21 @@ function CreateTeamModal({ onClose, onCreate }) {
               <input style={{ ...inputStyle, width: 100 }} type="number" min={1} max={24} value={trialMonths} onChange={(e) => setTrialMonths(Number(e.target.value))} />
             </div>
           )}
+
+          <div style={{ borderTop: `1px solid ${c.border}`, paddingTop: 14, marginTop: 4 }}>
+            <span style={{ color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 8, display: "block" }}>Trainer-Zugang (optional)</span>
+            <div style={{ display: "flex", gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ color: c.textDim, fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>E-Mail</label>
+                <input style={inputStyle} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="trainer@verein.de" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ color: c.textDim, fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Passwort</label>
+                <input style={inputStyle} type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Sicheres Passwort" />
+              </div>
+            </div>
+            <span style={{ color: c.textMuted, fontSize: 10, marginTop: 4, display: "block" }}>User wird sofort erstellt und dem Team zugewiesen. Zugangsdaten an den Kunden weiterleiten.</span>
+          </div>
         </div>
 
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 24 }}>
