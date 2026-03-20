@@ -804,6 +804,12 @@ function FeatureRequests() {
     setRequests(requests.map((r) => r.id === id ? { ...r, status: newStatus } : r));
   };
 
+  const deleteRequest = async (id) => {
+    if (!confirm("Feature Request löschen?")) return;
+    await supabase.from("feature_requests").delete().eq("id", id);
+    setRequests(requests.filter((r) => r.id !== id));
+  };
+
   const createRequest = async () => {
     if (!newForm.title.trim()) return;
     const { data } = await supabase.from("feature_requests").insert(newForm).select().single();
@@ -845,7 +851,10 @@ function FeatureRequests() {
                       <Badge label={priorityLabel(r.priority)} color={priorityColor(r.priority)} />
                       <span style={{ color: c.textMuted, fontSize: 10 }}>↑{r.votes}</span>
                     </div>
-                    {r.teams?.name && <div style={{ color: c.textMuted, fontSize: 10, marginTop: 4 }}>{r.teams.name}</div>}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                      {r.teams?.name && <span style={{ color: c.textMuted, fontSize: 10 }}>{r.teams.name}</span>}
+                      <button onClick={(e) => { e.stopPropagation(); deleteRequest(r.id); }} style={{ ...baseBtn, background: "transparent", color: c.danger, fontSize: 10, padding: "2px 6px", border: "none" }}>✕</button>
+                    </div>
                   </div>
                 ))}
               </div>
