@@ -795,20 +795,21 @@ function FeatureRequests() {
   const loadRequests = async () => {
     setLoading(true);
     const { data } = await supabase.from("feature_requests").select("*, teams(name)").order("created_at", { ascending: false });
-    // Enrich with email from profiles → auth users
-    const teamIds = [...new Set((data || []).map((r) => r.team_id).filter(Boolean))];
-    const { data: profiles } = await supabaseAdmin.from("profiles").select("id, team_id").in("team_id", teamIds.length ? teamIds : ["__none__"]);
-    const profileIds = (profiles || []).map((p) => p.id);
-    let emailMap = {};
-    if (profileIds.length) {
+    // Enrich with creator name + email
+    const creatorIds = [...new Set((data || []).map((r) => r.created_by).filter(Boolean))];
+    let creatorMap = {};
+    if (creatorIds.length) {
+      const { data: profiles } = await supabaseAdmin.from("profiles").select("id, vorname, nachname").in("id", creatorIds);
       try {
         const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-        (users || []).forEach((u) => { emailMap[u.id] = u.email; });
+        (users || []).forEach((u) => { creatorMap[u.id] = { email: u.email }; });
       } catch (e) { /* silent */ }
+      (profiles || []).forEach((p) => {
+        if (creatorMap[p.id]) creatorMap[p.id].name = `${p.vorname || ""} ${p.nachname || ""}`.trim();
+        else creatorMap[p.id] = { name: `${p.vorname || ""} ${p.nachname || ""}`.trim() };
+      });
     }
-    const teamEmailMap = {};
-    (profiles || []).forEach((p) => { if (!teamEmailMap[p.team_id] && emailMap[p.id]) teamEmailMap[p.team_id] = emailMap[p.id]; });
-    setRequests((data || []).map((r) => ({ ...r, email: teamEmailMap[r.team_id] || null })));
+    setRequests((data || []).map((r) => ({ ...r, creatorName: creatorMap[r.created_by]?.name || null, creatorEmail: creatorMap[r.created_by]?.email || null })));
     setLoading(false);
   };
 
@@ -863,7 +864,8 @@ function FeatureRequests() {
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
                       <div>
                         {r.teams?.name && <div style={{ color: c.textMuted, fontSize: 10 }}>{r.teams.name}</div>}
-                        {r.email && <div style={{ color: c.info, fontSize: 10 }}>{r.email}</div>}
+                        {r.creatorName && <div style={{ color: c.textDim, fontSize: 10 }}>{r.creatorName}</div>}
+                        {r.creatorEmail && <div style={{ color: c.info, fontSize: 10 }}>{r.creatorEmail}</div>}
                       </div>
                       <button onClick={(e) => { e.stopPropagation(); deleteRequest(r.id); }} style={{ ...baseBtn, background: "transparent", color: c.danger, fontSize: 10, padding: "2px 6px", border: "none" }}>✕</button>
                     </div>
