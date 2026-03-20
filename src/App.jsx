@@ -779,15 +779,15 @@ function FeatureRequests() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
-  const [newForm, setNewForm] = useState({ title: "", description: "", priority: "medium", status: "open" });
+  const [newForm, setNewForm] = useState({ title: "", description: "", priority: "medium", status: "offen" });
   const [dragId, setDragId] = useState(null);
 
   const COLUMNS = [
-    { key: "open", label: "Offen", color: c.textDim },
-    { key: "planned", label: "Geplant", color: c.info },
-    { key: "in_progress", label: "In Arbeit", color: c.warn },
-    { key: "done", label: "Erledigt", color: c.accent },
-    { key: "rejected", label: "Abgelehnt", color: c.danger },
+    { key: "offen", label: "Offen", color: c.textDim },
+    { key: "geplant", label: "Geplant", color: c.info },
+    { key: "in_arbeit", label: "In Arbeit", color: c.warn },
+    { key: "erledigt", label: "Erledigt", color: c.accent },
+    { key: "abgelehnt", label: "Abgelehnt", color: c.danger },
   ];
 
   useEffect(() => { loadRequests(); }, []);
@@ -808,7 +808,7 @@ function FeatureRequests() {
     if (!newForm.title.trim()) return;
     const { data } = await supabase.from("feature_requests").insert(newForm).select().single();
     if (data) setRequests([data, ...requests]);
-    setNewForm({ title: "", description: "", priority: "medium", status: "open" });
+    setNewForm({ title: "", description: "", priority: "medium", status: "offen" });
     setShowNew(false);
   };
 
