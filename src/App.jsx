@@ -795,7 +795,20 @@ function FeatureRequests() {
   const loadRequests = async () => {
     setLoading(true);
     const { data } = await supabase.from("feature_requests").select("*, teams(name)").order("created_at", { ascending: false });
-    setRequests(data || []);
+    // Enrich with email from profiles → auth users
+    const teamIds = [...new Set((data || []).map((r) => r.team_id).filter(Boolean))];
+    const { data: profiles } = await supabaseAdmin.from("profiles").select("id, team_id").in("team_id", teamIds.length ? teamIds : ["__none__"]);
+    const profileIds = (profiles || []).map((p) => p.id);
+    let emailMap = {};
+    if (profileIds.length) {
+      try {
+        const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+        (users || []).forEach((u) => { emailMap[u.id] = u.email; });
+      } catch (e) { /* silent */ }
+    }
+    const teamEmailMap = {};
+    (profiles || []).forEach((p) => { if (!teamEmailMap[p.team_id] && emailMap[p.id]) teamEmailMap[p.team_id] = emailMap[p.id]; });
+    setRequests((data || []).map((r) => ({ ...r, email: teamEmailMap[r.team_id] || null })));
     setLoading(false);
   };
 
@@ -847,12 +860,11 @@ function FeatureRequests() {
                     style={{ background: c.surface, borderRadius: 8, padding: "10px 12px", border: `1px solid ${c.border}`, cursor: "grab" }}>
                     <div style={{ color: c.text, fontSize: 12, fontWeight: 600, marginBottom: 4, lineHeight: 1.3 }}>{r.title}</div>
                     {r.description && <div style={{ color: c.textDim, fontSize: 11, marginBottom: 6, lineHeight: 1.4 }}>{r.description.substring(0, 80)}{r.description.length > 80 ? "..." : ""}</div>}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <Badge label={priorityLabel(r.priority)} color={priorityColor(r.priority)} />
-                      <span style={{ color: c.textMuted, fontSize: 10 }}>↑{r.votes}</span>
-                    </div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-                      {r.teams?.name && <span style={{ color: c.textMuted, fontSize: 10 }}>{r.teams.name}</span>}
+                      <div>
+                        {r.teams?.name && <div style={{ color: c.textMuted, fontSize: 10 }}>{r.teams.name}</div>}
+                        {r.email && <div style={{ color: c.info, fontSize: 10 }}>{r.email}</div>}
+                      </div>
                       <button onClick={(e) => { e.stopPropagation(); deleteRequest(r.id); }} style={{ ...baseBtn, background: "transparent", color: c.danger, fontSize: 10, padding: "2px 6px", border: "none" }}>✕</button>
                     </div>
                   </div>
