@@ -423,11 +423,19 @@ function CustomerDetailModal({ team, onClose, onUpdate }) {
 // ============================================
 // Dashboard
 // ============================================
-function Dashboard({ teams }) {
+function Dashboard({ teams, onNavigate }) {
   const total = teams.length;
   const active = teams.filter((t) => t.plan_status === "active").length;
   const trials = teams.filter((t) => t.plan_status === "trial").length;
   const expiringSoon = teams.filter((t) => { const d = daysUntil(t.trial_ends_at); return d !== null && d <= 7 && d >= 0; }).length;
+  const [openRequests, setOpenRequests] = useState([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("feature_requests").select("*, teams(name)").eq("status", "offen").order("created_at", { ascending: false }).limit(5);
+      setOpenRequests(data || []);
+    })();
+  }, []);
 
   const newest = [...teams].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 8);
   const expiring = teams.filter((t) => { const d = daysUntil(t.trial_ends_at); return d !== null && d <= 14 && d >= 0; }).sort((a, b) => new Date(a.trial_ends_at) - new Date(b.trial_ends_at));
@@ -480,6 +488,28 @@ function Dashboard({ teams }) {
           })}
         </Card>
       </div>
+
+      {/* Feature Requests */}
+      {openRequests.length > 0 && (
+        <Card style={{ marginTop: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <div style={{ color: c.textDim, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Offene Feature Requests ({openRequests.length})</div>
+            <button onClick={() => onNavigate("requests")} style={{ ...baseBtn, background: c.infoDim, color: c.info, border: `1px solid ${c.info}33`, fontSize: 11 }}>Alle anzeigen</button>
+          </div>
+          {openRequests.map((r) => (
+            <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${c.border}22` }}>
+              <div>
+                <div style={{ color: c.text, fontSize: 13, fontWeight: 600 }}>{r.title}</div>
+                {r.description && <div style={{ color: c.textDim, fontSize: 11 }}>{r.description.substring(0, 80)}{r.description.length > 80 ? "..." : ""}</div>}
+              </div>
+              <div style={{ textAlign: "right", flexShrink: 0 }}>
+                {r.teams?.name && <div style={{ color: c.textMuted, fontSize: 11 }}>{r.teams.name}</div>}
+                <div style={{ color: c.textDim, fontSize: 10 }}>{fmtDate(r.created_at)}</div>
+              </div>
+            </div>
+          ))}
+        </Card>
+      )}
     </div>
   );
 }
@@ -1546,7 +1576,7 @@ export default function App() {
           <div style={{ color: c.textDim, textAlign: "center", paddingTop: 60 }}>Daten werden geladen...</div>
         ) : (
           <>
-            {page === "dashboard" && <Dashboard teams={teams} />}
+            {page === "dashboard" && <Dashboard teams={teams} onNavigate={setPage} />}
             {page === "customers" && <Customers teams={teams} onUpdate={updateTeam} onCreateTeam={(t) => setTeams((prev) => [t, ...prev])} onDeleteTeam={(id) => setTeams((prev) => prev.filter((t) => t.id !== id))} />}
             {page === "clubs" && <Clubs clubs={clubs} onUpdate={updateClub} onNewClub={() => setShowClubWizard(true)} />}
             {page === "requests" && <FeatureRequests />}
