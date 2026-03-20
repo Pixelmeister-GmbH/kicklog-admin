@@ -746,7 +746,7 @@ function Customers({ teams, onUpdate, onCreateTeam, onDeleteTeam }) {
               </div>,
               <div key={`${t.id}-actions`} style={{ padding: "12px 16px", borderBottom: `1px solid ${c.border}22`, display: "flex", alignItems: "center", gap: 6 }}>
                 <button onClick={() => setSelectedTeam(t)} style={{ ...baseBtn, flex: 1, textAlign: "center", background: c.accentDim, color: c.accent, border: `1px solid ${c.accent}33` }}>Details</button>
-                <button onClick={() => impersonate(t.id)} style={{ ...baseBtn, flex: 1, textAlign: "center", background: c.infoDim, color: c.info, border: `1px solid ${c.info}33` }}>↗ Login</button>
+                <button onClick={() => impersonate(t.id)} style={{ ...baseBtn, flex: 1, textAlign: "center", background: c.infoDim, color: c.info, border: `1px solid ${c.info}33` }}>Login</button>
                 <button onClick={() => deleteTeam(t)} style={{ ...baseBtn, flex: 1, textAlign: "center", background: c.dangerDim, color: c.danger, border: `1px solid ${c.danger}33` }}>Löschen</button>
               </div>,
             ];
