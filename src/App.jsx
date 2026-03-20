@@ -599,7 +599,7 @@ function CreateTeamModal({ onClose, onCreate }) {
   );
 }
 
-function Customers({ teams, onUpdate, onCreateTeam }) {
+function Customers({ teams, onUpdate, onCreateTeam, onDeleteTeam }) {
   const [planFilter, setPlanFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -612,6 +612,23 @@ function Customers({ teams, onUpdate, onCreateTeam }) {
     if (search && !t.name.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+
+  const deleteTeam = async (t) => {
+    if (!confirm(`Team "${t.name}" wirklich KOMPLETT löschen?\n\nAlle Spieler, Spiele, Trainings, Scouting und User werden unwiderruflich gelöscht!`)) return;
+    if (!confirm(`LETZTE WARNUNG: "${t.name}" und alle Daten endgültig löschen?`)) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) { alert("Nicht eingeloggt."); return; }
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-delete-team`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ teamId: t.id }),
+    });
+    const json = await res.json();
+    if (!res.ok || json.error) { alert("Fehler: " + (json.error || res.statusText)); return; }
+    onDeleteTeam(t.id);
+    alert(`Team "${t.name}" gelöscht.\n\n${json.deleted.users} User, ${json.deleted.players} Spieler, ${json.deleted.matches} Spiele, ${json.deleted.trainings} Trainings entfernt.`);
+  };
 
   const toggleInvoice = async (t) => {
     const newVal = !t.invoice_created;
@@ -720,6 +737,7 @@ function Customers({ teams, onUpdate, onCreateTeam }) {
               <div key={`${t.id}-actions`} style={{ padding: "12px 16px", borderBottom: `1px solid ${c.border}22`, display: "flex", alignItems: "center", gap: 6 }}>
                 <button onClick={() => setSelectedTeam(t)} style={{ ...baseBtn, background: c.accentDim, color: c.accent, border: `1px solid ${c.accent}33` }}>Details</button>
                 <button onClick={() => impersonate(t.id)} style={{ ...baseBtn, background: c.infoDim, color: c.info, border: `1px solid ${c.info}33` }}>↗ Login</button>
+                <button onClick={() => deleteTeam(t)} style={{ ...baseBtn, background: c.dangerDim, color: c.danger, border: `1px solid ${c.danger}33` }}>🗑</button>
               </div>,
             ];
           })}
@@ -1480,7 +1498,7 @@ export default function App() {
         ) : (
           <>
             {page === "dashboard" && <Dashboard teams={teams} />}
-            {page === "customers" && <Customers teams={teams} onUpdate={updateTeam} onCreateTeam={(t) => setTeams((prev) => [t, ...prev])} />}
+            {page === "customers" && <Customers teams={teams} onUpdate={updateTeam} onCreateTeam={(t) => setTeams((prev) => [t, ...prev])} onDeleteTeam={(id) => setTeams((prev) => prev.filter((t) => t.id !== id))} />}
             {page === "clubs" && <Clubs clubs={clubs} onUpdate={updateClub} onNewClub={() => setShowClubWizard(true)} />}
             {page === "requests" && <FeatureRequests />}
             {page === "settings" && <Settings currentUser={session?.user} />}
