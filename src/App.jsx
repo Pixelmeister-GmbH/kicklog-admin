@@ -682,7 +682,7 @@ function Customers({ teams, onUpdate, onCreateTeam, onDeleteTeam }) {
 
       {/* Table */}
       <Card style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 80px 100px 110px 110px 110px 200px", gap: 0 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 80px 100px 110px 110px 110px 260px", gap: 0 }}>
           {/* Header */}
           {["Name", "Plan", "Status", "Erstellt", "Trial Ende", "Rechnung", "Aktionen"].map((h) => (
             <div key={h} style={{ color: c.textDim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, padding: "10px 16px", borderBottom: `1px solid ${c.border}` }}>{h}</div>
@@ -745,9 +745,9 @@ function Customers({ teams, onUpdate, onCreateTeam, onDeleteTeam }) {
                 </button>
               </div>,
               <div key={`${t.id}-actions`} style={{ padding: "12px 16px", borderBottom: `1px solid ${c.border}22`, display: "flex", alignItems: "center", gap: 6 }}>
-                <button onClick={() => setSelectedTeam(t)} style={{ ...baseBtn, background: c.accentDim, color: c.accent, border: `1px solid ${c.accent}33` }}>Details</button>
-                <button onClick={() => impersonate(t.id)} style={{ ...baseBtn, background: c.infoDim, color: c.info, border: `1px solid ${c.info}33` }}>↗ Login</button>
-                <button onClick={() => deleteTeam(t)} style={{ ...baseBtn, background: c.dangerDim, color: c.danger, border: `1px solid ${c.danger}33` }}>🗑</button>
+                <button onClick={() => setSelectedTeam(t)} style={{ ...baseBtn, flex: 1, textAlign: "center", background: c.accentDim, color: c.accent, border: `1px solid ${c.accent}33` }}>Details</button>
+                <button onClick={() => impersonate(t.id)} style={{ ...baseBtn, flex: 1, textAlign: "center", background: c.infoDim, color: c.info, border: `1px solid ${c.info}33` }}>↗ Login</button>
+                <button onClick={() => deleteTeam(t)} style={{ ...baseBtn, flex: 1, textAlign: "center", background: c.dangerDim, color: c.danger, border: `1px solid ${c.danger}33` }}>Löschen</button>
               </div>,
             ];
           })}
