@@ -682,7 +682,7 @@ function Customers({ teams, onUpdate, onCreateTeam, onDeleteTeam }) {
 
       {/* Table */}
       <Card style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 80px 100px 110px 110px 110px 160px", gap: 0 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 80px 100px 110px 110px 110px 200px", gap: 0 }}>
           {/* Header */}
           {["Name", "Plan", "Status", "Erstellt", "Trial Ende", "Rechnung", "Aktionen"].map((h) => (
             <div key={h} style={{ color: c.textDim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, padding: "10px 16px", borderBottom: `1px solid ${c.border}` }}>{h}</div>
