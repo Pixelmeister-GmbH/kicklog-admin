@@ -795,19 +795,22 @@ function FeatureRequests() {
   const loadRequests = async () => {
     setLoading(true);
     const { data } = await supabase.from("feature_requests").select("*, teams(name)").order("created_at", { ascending: false });
-    // Enrich with creator name + email
+    // Enrich with creator name + email via RPC (service role can query auth.users)
     const creatorIds = [...new Set((data || []).map((r) => r.created_by).filter(Boolean))];
     let creatorMap = {};
     if (creatorIds.length) {
-      const { data: profiles } = await supabaseAdmin.from("profiles").select("id, vorname, nachname").in("id", creatorIds);
       try {
-        const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-        (users || []).forEach((u) => { creatorMap[u.id] = { email: u.email }; });
+        const idList = creatorIds.map((id) => `'${id}'`).join(",");
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_creators`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
+          body: JSON.stringify({ creator_ids: creatorIds }),
+        });
+        if (res.ok) {
+          const creators = await res.json();
+          creators.forEach((cr) => { creatorMap[cr.id] = { name: `${cr.vorname || ""} ${cr.nachname || ""}`.trim(), email: cr.email }; });
+        }
       } catch (e) { /* silent */ }
-      (profiles || []).forEach((p) => {
-        if (creatorMap[p.id]) creatorMap[p.id].name = `${p.vorname || ""} ${p.nachname || ""}`.trim();
-        else creatorMap[p.id] = { name: `${p.vorname || ""} ${p.nachname || ""}`.trim() };
-      });
     }
     setRequests((data || []).map((r) => ({ ...r, creatorName: creatorMap[r.created_by]?.name || null, creatorEmail: creatorMap[r.created_by]?.email || null })));
     setLoading(false);
