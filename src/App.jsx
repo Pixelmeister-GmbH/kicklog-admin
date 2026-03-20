@@ -801,9 +801,10 @@ function FeatureRequests() {
     if (creatorIds.length) {
       try {
         const idList = creatorIds.map((id) => `'${id}'`).join(",");
+        const { data: { session: s } } = await supabase.auth.getSession();
         const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_creators`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
+          headers: { "Content-Type": "application/json", apikey: ANON_KEY, Authorization: `Bearer ${s?.access_token || ANON_KEY}` },
           body: JSON.stringify({ creator_ids: creatorIds }),
         });
         if (res.ok) {
