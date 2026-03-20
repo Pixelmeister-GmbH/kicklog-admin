@@ -702,6 +702,16 @@ function Customers({ teams, onUpdate, onCreateTeam, onDeleteTeam }) {
                   onClick={() => navigator.clipboard.writeText(t.id)}
                   style={{ color: c.textMuted, fontSize: 10, fontFamily: "monospace", cursor: "pointer", marginTop: 2 }}
                 >{t.id}</span>
+                {(t.members || []).length > 0 && (
+                  <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 2 }}>
+                    {t.members.map((m) => (
+                      <span key={m.id} style={{ fontSize: 10, color: c.textDim }}>
+                        <span style={{ color: c.accent, marginRight: 4 }}>●</span>
+                        {m.vorname} {m.nachname} — <span style={{ color: c.textMuted }}>{m.funktion || "—"}</span> — <span style={{ color: c.info, cursor: "pointer" }} onClick={() => navigator.clipboard.writeText(m.email)} title="Klicken zum Kopieren">{m.email}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>,
               <div key={`${t.id}-plan`} style={{ padding: "12px 16px", borderBottom: `1px solid ${c.border}22`, display: "flex", alignItems: "center" }}>
                 <Badge label={planLabel(t.plan)} color={planColor(t.plan)} />
@@ -1435,7 +1445,19 @@ export default function App() {
   const loadTeams = async () => {
     setDataLoading(true);
     const { data } = await supabase.from("teams").select("*").order("created_at", { ascending: false });
-    setTeams(data || []);
+    // Load all profiles (visible via "Users can view all profiles" RLS)
+    const { data: allProfiles } = await supabase.from("profiles").select("id, team_id, vorname, nachname, funktion");
+    // Get emails from auth admin API (service role)
+    const { data: { users: authUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+    const emailMap = {};
+    (authUsers || []).forEach((u) => { emailMap[u.id] = u.email; });
+    // Attach profiles + emails to teams
+    const profileList = (allProfiles || []).map((p) => ({ ...p, email: emailMap[p.id] || "—" }));
+    const teamsWithProfiles = (data || []).map((t) => ({
+      ...t,
+      members: profileList.filter((p) => p.team_id === t.id),
+    }));
+    setTeams(teamsWithProfiles);
     setDataLoading(false);
   };
 
