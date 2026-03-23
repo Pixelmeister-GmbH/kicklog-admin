@@ -956,8 +956,16 @@ function Settings({ currentUser }) {
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [adding, setAdding] = useState(false);
   const [msg, setMsg] = useState("");
+  const [googleKey, setGoogleKey] = useState("");
+  const [googleKeySaved, setGoogleKeySaved] = useState(false);
 
-  useEffect(() => { loadAdmins(); }, []);
+  useEffect(() => {
+    loadAdmins();
+    (async () => {
+      const { data } = await supabase.from("app_settings").select("value").eq("key", "google_places_api_key").single();
+      if (data?.value) setGoogleKey(data.value);
+    })();
+  }, []);
 
   const loadAdmins = async () => {
     const { data } = await supabase.from("profiles").select("id, vorname, nachname").eq("role", "super_admin");
@@ -1007,6 +1015,22 @@ function Settings({ currentUser }) {
           </div>
         </Card>
       </div>
+
+      {/* Google Places API Key */}
+      <Card style={{ marginTop: 16 }}>
+        <div style={{ color: c.textDim, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 14 }}>Google Places API Key (Global)</div>
+        <p style={{ color: c.textDim, fontSize: 12, marginBottom: 10 }}>Dieser Key wird für alle Teams verwendet — Ortsuche bei Spielen, Trainings und Platzanlage.</p>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input style={{ ...inputStyle, flex: 1 }} type="password" placeholder="AIzaSy..." value={googleKey} onChange={(e) => setGoogleKey(e.target.value)} />
+          <button onClick={async () => {
+            if (!googleKey.trim()) return;
+            await supabase.from("app_settings").upsert({ key: "google_places_api_key", value: googleKey.trim(), updated_at: new Date().toISOString() });
+            setGoogleKeySaved(true);
+            setTimeout(() => setGoogleKeySaved(false), 3000);
+          }} style={{ ...baseBtn, background: c.accent, color: "#000" }}>Speichern</button>
+        </div>
+        {googleKeySaved && <div style={{ color: c.accent, fontSize: 12, marginTop: 8 }}>✓ Gespeichert — gilt für alle Teams</div>}
+      </Card>
     </div>
   );
 }
