@@ -1528,12 +1528,25 @@ export default function App() {
     const { data } = await supabase.from("teams").select("*").order("created_at", { ascending: false });
     // Load all profiles (visible via "Users can view all profiles" RLS)
     const { data: allProfiles } = await supabase.from("profiles").select("id, team_id, vorname, nachname, funktion");
-    // Get emails from auth admin API (service role)
-    const { data: { users: authUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-    const emailMap = {};
-    (authUsers || []).forEach((u) => { emailMap[u.id] = u.email; });
-    // Attach profiles + emails to teams
-    const profileList = (allProfiles || []).map((p) => ({ ...p, email: emailMap[p.id] || "—" }));
+    // Get emails via DB function (bypasses browser auth API restriction)
+    const profileIds = (allProfiles || []).map((p) => p.id);
+    let profileList = allProfiles || [];
+    if (profileIds.length) {
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession();
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_creators`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", apikey: ANON_KEY, Authorization: `Bearer ${s?.access_token || ANON_KEY}` },
+          body: JSON.stringify({ creator_ids: profileIds }),
+        });
+        if (res.ok) {
+          const creators = await res.json();
+          const emailMap = {};
+          creators.forEach((cr) => { emailMap[cr.id] = cr.email; });
+          profileList = (allProfiles || []).map((p) => ({ ...p, email: emailMap[p.id] || "—" }));
+        }
+      } catch (e) { profileList = (allProfiles || []).map((p) => ({ ...p, email: "—" })); }
+    }
     const teamsWithProfiles = (data || []).map((t) => ({
       ...t,
       members: profileList.filter((p) => p.team_id === t.id),
