@@ -899,7 +899,7 @@ function FeatureRequests() {
                     {r.description && <div style={{ color: c.textDim, fontSize: 11, marginBottom: 6, lineHeight: 1.4 }}>{r.description.substring(0, 80)}{r.description.length > 80 ? "..." : ""}</div>}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
                       <div>
-                        <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4, background: r.teams?.name ? c.accent + "22" : c.info + "22", color: r.teams?.name ? c.accent : c.info }}>{r.teams?.name || "Admin"}</span>
+                        <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4, background: r.teams?.name ? c.accent + "22" : c.info + "22", color: r.teams?.name ? c.accent : c.info }}>{r.teams?.name || "Kicklog King"}</span>
                         {r.creatorName && <div style={{ color: c.textDim, fontSize: 10, marginTop: 2 }}>{r.creatorName}</div>}
                       </div>
                       <button onClick={(e) => { e.stopPropagation(); deleteRequest(r.id); }} style={{ ...baseBtn, background: "transparent", color: c.danger, fontSize: 10, padding: "2px 6px", border: "none" }}>✕</button>
