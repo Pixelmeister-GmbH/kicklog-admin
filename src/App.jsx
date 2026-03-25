@@ -811,6 +811,7 @@ function FeatureRequests() {
   const [showNew, setShowNew] = useState(false);
   const [newForm, setNewForm] = useState({ title: "", description: "", priority: "medium", status: "offen" });
   const [dragId, setDragId] = useState(null);
+  const [selectedRequest, setSelectedRequest] = useState(null);
 
   const COLUMNS = [
     { key: "offen", label: "Offen", color: c.textDim },
@@ -892,7 +893,8 @@ function FeatureRequests() {
                 {colItems.map((r) => (
                   <div key={r.id} draggable
                     onDragStart={() => setDragId(r.id)}
-                    style={{ background: c.surface, borderRadius: 8, padding: "10px 12px", border: `1px solid ${c.border}`, cursor: "grab" }}>
+                    onClick={() => setSelectedRequest(r)}
+                    style={{ background: c.surface, borderRadius: 8, padding: "10px 12px", border: `1px solid ${c.border}`, cursor: "pointer" }}>
                     <div style={{ color: c.text, fontSize: 12, fontWeight: 600, marginBottom: 4, lineHeight: 1.3 }}>{r.title}</div>
                     {r.description && <div style={{ color: c.textDim, fontSize: 11, marginBottom: 6, lineHeight: 1.4 }}>{r.description.substring(0, 80)}{r.description.length > 80 ? "..." : ""}</div>}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
@@ -910,6 +912,29 @@ function FeatureRequests() {
           );
         })}
       </div>
+
+      {selectedRequest && (
+        <Modal title={selectedRequest.title} onClose={() => setSelectedRequest(null)} width={520}>
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ color: c.text, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{selectedRequest.description || "Keine Beschreibung."}</div>
+          </div>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 16, padding: "12px 0", borderTop: `1px solid ${c.border}`, borderBottom: `1px solid ${c.border}` }}>
+            {selectedRequest.teams?.name && <div><span style={{ color: c.textDim, fontSize: 10 }}>Team</span><div style={{ color: c.text, fontSize: 12, fontWeight: 600 }}>{selectedRequest.teams.name}</div></div>}
+            {selectedRequest.creatorName && <div><span style={{ color: c.textDim, fontSize: 10 }}>Von</span><div style={{ color: c.text, fontSize: 12, fontWeight: 600 }}>{selectedRequest.creatorName}</div></div>}
+            {selectedRequest.creatorEmail && <div><span style={{ color: c.textDim, fontSize: 10 }}>E-Mail</span><div style={{ color: c.info, fontSize: 12 }}>{selectedRequest.creatorEmail}</div></div>}
+            <div><span style={{ color: c.textDim, fontSize: 10 }}>Datum</span><div style={{ color: c.text, fontSize: 12 }}>{selectedRequest.created_at ? new Date(selectedRequest.created_at).toLocaleDateString("de-DE") : "—"}</div></div>
+            <div><span style={{ color: c.textDim, fontSize: 10 }}>Status</span><div style={{ color: c.text, fontSize: 12, fontWeight: 600 }}>{selectedRequest.status}</div></div>
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {Object.entries(COLUMNS.reduce((a, col) => ({ ...a, [col.key]: col }), {})).map(([key, col]) => (
+              <button key={key} onClick={() => { changeStatus(selectedRequest.id, key); setSelectedRequest({ ...selectedRequest, status: key }); }}
+                style={{ ...baseBtn, flex: 1, textAlign: "center", background: selectedRequest.status === key ? col.color + "22" : c.surface, color: selectedRequest.status === key ? col.color : c.textDim, border: `1px solid ${selectedRequest.status === key ? col.color + "44" : c.border}`, fontSize: 11 }}>
+                {col.label}
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
 
       {showNew && (
         <Modal title="Neue Feature-Anfrage" onClose={() => setShowNew(false)} width={480}>
