@@ -1088,16 +1088,10 @@ function BackupStatus() {
   const callBackupApi = async (action) => {
     const { data: { session: s } } = await supabase.auth.getSession();
     if (!s?.access_token) throw new Error("Keine aktive Session — bitte neu einloggen");
-    // Debug: check token expiry
-    try {
-      const payload = JSON.parse(atob(s.access_token.split(".")[1]));
-      const exp = new Date(payload.exp * 1000);
-      const now = new Date();
-      if (exp < now) throw new Error(`Token abgelaufen (${exp.toISOString()}). Bitte Seite neu laden.`);
-    } catch (e) { if (e.message.includes("abgelaufen")) throw e; }
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-backup-status`, {
+    const fnUrl = `https://uwcvibsysnmcikvylrgp.supabase.co/functions/v1/admin-backup-status`;
+    const res = await fetch(fnUrl, {
       method: "POST",
-      headers: { "Authorization": `Bearer ${s.access_token}`, "Content-Type": "application/json", "apikey": ANON_KEY },
+      headers: { "Authorization": `Bearer ${s.access_token}`, "Content-Type": "application/json", "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3Y3ZpYnN5c25tY2lrdnlscmdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MDQ4NTAsImV4cCI6MjA4ODk4MDg1MH0.rUUH4_G8oV5CtyIKvihok9rTQcdcGBMpswy8TBugqZY" },
       body: JSON.stringify({ action }),
     });
     const text = await res.text();
