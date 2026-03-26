@@ -1927,14 +1927,27 @@ export default function App() {
   if (loading) return <div style={{ minHeight: "100vh", background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", color: c.textDim }}>Laden...</div>;
   if (!session) return <LoginScreen onLogin={handleLogin} />;
 
+  const navIcon = (name, color) => {
+    const s = { width: 18, height: 18, fill: "none", stroke: color, strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" };
+    const icons = {
+      dashboard: <svg {...s} viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
+      customers: <svg {...s} viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+      clubs: <svg {...s} viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+      requests: <svg {...s} viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>,
+      settings: <svg {...s} viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
+      backup: <svg {...s} viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+      system: <svg {...s} viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>,
+    };
+    return icons[name] || null;
+  };
   const NAV = [
-    { key: "dashboard", label: "Dashboard", icon: "▦" },
-    { key: "customers", label: "Kunden (Teams)", icon: "◉" },
-    { key: "clubs", label: "Vereine (Clubs)", icon: "◎" },
-    { key: "requests", label: "Feature Requests", icon: "◈" },
-    { key: "settings", label: "Einstellungen", icon: "⚙" },
-    { key: "backup", label: "Backup", icon: "💾" },
-    { key: "system", label: "System", icon: "🔧" },
+    { key: "dashboard", label: "Dashboard" },
+    { key: "customers", label: "Kunden (Teams)" },
+    { key: "clubs", label: "Vereine (Clubs)" },
+    { key: "requests", label: "Feature Requests" },
+    { key: "settings", label: "Einstellungen" },
+    { key: "backup", label: "Backup" },
+    { key: "system", label: "System" },
   ];
 
   return (
@@ -1953,7 +1966,7 @@ export default function App() {
           {NAV.map((n) => (
             <button key={n.key} onClick={() => setPage(n.key)}
               style={{ ...baseBtn, width: "100%", textAlign: "left", background: page === n.key ? c.accentDim : "transparent", color: page === n.key ? c.accent : c.textDim, padding: "9px 12px", marginBottom: 2, display: "flex", alignItems: "center", gap: 10, fontWeight: page === n.key ? 700 : 500, fontSize: 13, borderRadius: 8 }}>
-              <span style={{ fontSize: 15 }}>{n.icon}</span>
+              {navIcon(n.key, page === n.key ? c.accent : c.textDim)}
               {n.label}
             </button>
           ))}
