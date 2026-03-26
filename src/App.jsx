@@ -1060,6 +1060,146 @@ function Settings({ currentUser }) {
 }
 
 // ============================================
+// Backup Status
+// ============================================
+function BackupStatus() {
+  const [runs, setRuns] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [triggering, setTriggering] = useState(false);
+
+  useEffect(() => { loadRuns(); }, []);
+
+  const loadRuns = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("https://api.github.com/repos/Pixelmeister-GmbH/klicklog/actions/workflows/backup.yml/runs?per_page=20", {
+        headers: { Accept: "application/vnd.github+json" },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRuns(data.workflow_runs || []);
+      }
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  };
+
+  const triggerBackup = async () => {
+    setTriggering(true);
+    try {
+      // Trigger via Supabase Edge Function proxy (GitHub API needs auth token)
+      alert("Backup manuell auslösen: Gehe zu GitHub Actions → Kicklog Backup → Run workflow\n\nhttps://github.com/Pixelmeister-GmbH/klicklog/actions/workflows/backup.yml");
+    } catch (e) { alert("Fehler: " + e.message); }
+    setTriggering(false);
+  };
+
+  const statusIcon = (conclusion, status) => {
+    if (status === "in_progress" || status === "queued") return "🔄";
+    if (conclusion === "success") return "✅";
+    if (conclusion === "failure") return "❌";
+    if (conclusion === "cancelled") return "⏹";
+    return "❓";
+  };
+  const statusColor = (conclusion, status) => {
+    if (status === "in_progress" || status === "queued") return c.info;
+    if (conclusion === "success") return c.accent;
+    if (conclusion === "failure") return c.danger;
+    return c.textDim;
+  };
+  const statusLabel = (conclusion, status) => {
+    if (status === "in_progress") return "Läuft...";
+    if (status === "queued") return "In Warteschlange";
+    if (conclusion === "success") return "Erfolgreich";
+    if (conclusion === "failure") return "Fehlgeschlagen";
+    if (conclusion === "cancelled") return "Abgebrochen";
+    return status;
+  };
+  const fmtDuration = (start, end) => {
+    if (!start || !end) return "—";
+    const ms = new Date(end) - new Date(start);
+    const s = Math.floor(ms / 1000);
+    return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
+  };
+  const fmtDateTime = (iso) => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return `${d.getDate().toString().padStart(2, "0")}.${(d.getMonth() + 1).toString().padStart(2, "0")}.${d.getFullYear()} ${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+  };
+
+  const lastSuccess = runs.find((r) => r.conclusion === "success");
+  const lastFailure = runs.find((r) => r.conclusion === "failure");
+  const successCount = runs.filter((r) => r.conclusion === "success").length;
+  const failCount = runs.filter((r) => r.conclusion === "failure").length;
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <h2 style={{ color: c.text, fontSize: 20, fontWeight: 700 }}>Backup Status</h2>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={loadRuns} style={{ ...baseBtn, background: c.surface, color: c.textDim, border: `1px solid ${c.border}` }}>Aktualisieren</button>
+          <a href="https://github.com/Pixelmeister-GmbH/klicklog/actions/workflows/backup.yml" target="_blank" rel="noreferrer"
+            style={{ ...baseBtn, background: c.accent, color: "#000", textDecoration: "none", display: "inline-flex", alignItems: "center" }}>Manuell starten</a>
+        </div>
+      </div>
+
+      {loading ? <div style={{ color: c.textDim, textAlign: "center", padding: 40 }}>Laden...</div> : (
+        <>
+          {/* Übersicht Cards */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
+            <StatCard label="Letztes Backup" value={lastSuccess ? fmtDateTime(lastSuccess.created_at) : "—"} sub={lastSuccess ? `Dauer: ${fmtDuration(lastSuccess.run_started_at, lastSuccess.updated_at)}` : "Noch kein Backup"} color={c.accent} />
+            <StatCard label="Erfolgsrate" value={runs.length ? `${Math.round(successCount / runs.length * 100)}%` : "—"} sub={`${successCount} / ${runs.length} Runs`} color={failCount === 0 ? c.accent : c.warn} />
+            <StatCard label="Fehlgeschlagen" value={failCount} sub={lastFailure ? `Letzter: ${fmtDateTime(lastFailure.created_at)}` : "Keine Fehler"} color={failCount > 0 ? c.danger : c.accent} />
+            <StatCard label="Zeitplan" value="02:00 UTC" sub="Täglich automatisch" color={c.info} />
+          </div>
+
+          {/* Backup-Inhalte */}
+          <Card style={{ marginBottom: 16 }}>
+            <div style={{ color: c.textDim, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 14 }}>Was wird gesichert</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+              <div style={{ background: c.bg, borderRadius: 8, padding: 12, border: `1px solid ${c.border}` }}>
+                <div style={{ color: c.accent, fontSize: 13, fontWeight: 600, marginBottom: 4 }}>PostgreSQL Datenbank</div>
+                <div style={{ color: c.textDim, fontSize: 11 }}>Kompletter pg_dump, komprimiert (.sql.gz)</div>
+                <div style={{ color: c.textMuted, fontSize: 10, marginTop: 4 }}>Daily: 7 Tage · Weekly: 4 Wochen · Monthly: 12 Monate</div>
+              </div>
+              <div style={{ background: c.bg, borderRadius: 8, padding: 12, border: `1px solid ${c.border}` }}>
+                <div style={{ color: c.info, fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Storage Files</div>
+                <div style={{ color: c.textDim, fontSize: 11 }}>Spielerfotos, Wappen via rclone S3 Sync</div>
+                <div style={{ color: c.textMuted, fontSize: 10, marginTop: 4 }}>Letzte 7 Tage aufbewahrt</div>
+              </div>
+              <div style={{ background: c.bg, borderRadius: 8, padding: 12, border: `1px solid ${c.border}` }}>
+                <div style={{ color: c.warn, fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Environment</div>
+                <div style={{ color: c.textDim, fontSize: 11 }}>Alle Secrets als GPG-verschlüsselte Datei</div>
+                <div style={{ color: c.textMuted, fontSize: 10, marginTop: 4 }}>Letzte 30 Tage aufbewahrt</div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Run-Historie */}
+          <Card style={{ padding: 0, overflow: "hidden" }}>
+            <div style={{ padding: "12px 16px", borderBottom: `1px solid ${c.border}` }}>
+              <span style={{ color: c.textDim, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Letzte 20 Runs</span>
+            </div>
+            {runs.length === 0 && <div style={{ padding: 24, color: c.textDim, textAlign: "center" }}>Noch keine Backup-Runs.</div>}
+            {runs.map((r) => (
+              <a key={r.id} href={r.html_url} target="_blank" rel="noreferrer"
+                style={{ display: "grid", gridTemplateColumns: "40px 1fr 120px 100px 80px", gap: 0, alignItems: "center", padding: "10px 16px", borderBottom: `1px solid ${c.border}22`, textDecoration: "none", cursor: "pointer" }}>
+                <span style={{ fontSize: 16 }}>{statusIcon(r.conclusion, r.status)}</span>
+                <div>
+                  <div style={{ color: c.text, fontSize: 12, fontWeight: 500 }}>{r.display_title || "Kicklog Backup"}</div>
+                  <div style={{ color: c.textDim, fontSize: 10 }}>{r.event === "schedule" ? "Automatisch (Zeitplan)" : r.event === "workflow_dispatch" ? "Manuell gestartet" : r.event}</div>
+                </div>
+                <span style={{ color: statusColor(r.conclusion, r.status), fontSize: 11, fontWeight: 600 }}>{statusLabel(r.conclusion, r.status)}</span>
+                <span style={{ color: c.textDim, fontSize: 11 }}>{fmtDateTime(r.created_at)}</span>
+                <span style={{ color: c.textDim, fontSize: 10, textAlign: "right" }}>{fmtDuration(r.run_started_at, r.updated_at)}</span>
+              </a>
+            ))}
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ============================================
 // Club Onboarding Wizard
 // ============================================
 const LIGA_OPTIONS = ["Kreisliga A", "Kreisliga B", "Kreisliga C", "Bezirksliga", "Landesliga", "Verbandsliga", "Oberliga", "Regionalliga", "Sonstige"];
@@ -1598,6 +1738,7 @@ export default function App() {
     { key: "clubs", label: "Vereine (Clubs)", icon: "◎" },
     { key: "requests", label: "Feature Requests", icon: "◈" },
     { key: "settings", label: "Einstellungen", icon: "⚙" },
+    { key: "backup", label: "Backup", icon: "💾" },
   ];
 
   return (
@@ -1633,7 +1774,7 @@ export default function App() {
 
       {/* Content */}
       <div style={{ flex: 1, padding: 28, overflowY: "auto" }}>
-        {dataLoading && page !== "requests" && page !== "settings" && page !== "clubs" ? (
+        {dataLoading && page !== "requests" && page !== "settings" && page !== "clubs" && page !== "backup" ? (
           <div style={{ color: c.textDim, textAlign: "center", paddingTop: 60 }}>Daten werden geladen...</div>
         ) : (
           <>
@@ -1642,6 +1783,7 @@ export default function App() {
             {page === "clubs" && <Clubs clubs={clubs} onUpdate={updateClub} onNewClub={() => setShowClubWizard(true)} />}
             {page === "requests" && <FeatureRequests />}
             {page === "settings" && <Settings currentUser={session?.user} />}
+            {page === "backup" && <BackupStatus />}
           </>
         )}
       </div>
