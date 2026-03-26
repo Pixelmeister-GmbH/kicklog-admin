@@ -1096,12 +1096,14 @@ function BackupStatus() {
     return res.json();
   };
 
+  const [loadError, setLoadError] = useState(null);
   const loadRuns = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const data = await callBackupApi("status");
       setRuns(data.runs || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); setLoadError(e.message); }
     setLoading(false);
   };
 
@@ -1166,7 +1168,9 @@ function BackupStatus() {
         </div>
       </div>
 
-      {loading ? <div style={{ color: c.textDim, textAlign: "center", padding: 40 }}>Laden...</div> : (
+      {loading ? <div style={{ color: c.textDim, textAlign: "center", padding: 40 }}>Laden...</div> : loadError ? (
+        <Card><div style={{ color: c.danger, fontSize: 13 }}>Fehler: {loadError}</div></Card>
+      ) : (
         <>
           {/* Übersicht Cards */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
