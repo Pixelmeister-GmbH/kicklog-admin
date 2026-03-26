@@ -1069,16 +1069,22 @@ function BackupStatus() {
 
   useEffect(() => { loadRuns(); }, []);
 
+  const callBackupApi = async (action) => {
+    const { data: { session: s } } = await supabase.auth.getSession();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-backup-status`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${s?.access_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    if (!res.ok) { const err = await res.json(); throw new Error(err.error || res.statusText); }
+    return res.json();
+  };
+
   const loadRuns = async () => {
     setLoading(true);
     try {
-      const res = await fetch("https://api.github.com/repos/Pixelmeister-GmbH/klicklog/actions/workflows/backup.yml/runs?per_page=20", {
-        headers: { Accept: "application/vnd.github+json" },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setRuns(data.workflow_runs || []);
-      }
+      const data = await callBackupApi("status");
+      setRuns(data.runs || []);
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -1086,8 +1092,9 @@ function BackupStatus() {
   const triggerBackup = async () => {
     setTriggering(true);
     try {
-      // Trigger via Supabase Edge Function proxy (GitHub API needs auth token)
-      alert("Backup manuell auslösen: Gehe zu GitHub Actions → Kicklog Backup → Run workflow\n\nhttps://github.com/Pixelmeister-GmbH/klicklog/actions/workflows/backup.yml");
+      await callBackupApi("trigger");
+      alert("Backup gestartet! Status wird in 1-2 Minuten aktualisiert.");
+      setTimeout(loadRuns, 10000);
     } catch (e) { alert("Fehler: " + e.message); }
     setTriggering(false);
   };
@@ -1136,8 +1143,10 @@ function BackupStatus() {
         <h2 style={{ color: c.text, fontSize: 20, fontWeight: 700 }}>Backup Status</h2>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={loadRuns} style={{ ...baseBtn, background: c.surface, color: c.textDim, border: `1px solid ${c.border}` }}>Aktualisieren</button>
-          <a href="https://github.com/Pixelmeister-GmbH/klicklog/actions/workflows/backup.yml" target="_blank" rel="noreferrer"
-            style={{ ...baseBtn, background: c.accent, color: "#000", textDecoration: "none", display: "inline-flex", alignItems: "center" }}>Manuell starten</a>
+          <button onClick={triggerBackup} disabled={triggering}
+            style={{ ...baseBtn, background: triggering ? c.textDim : c.accent, color: "#000", opacity: triggering ? 0.6 : 1 }}>
+            {triggering ? "Wird gestartet..." : "Backup jetzt starten"}
+          </button>
         </div>
       </div>
 
