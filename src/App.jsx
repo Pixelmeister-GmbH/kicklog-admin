@@ -1252,6 +1252,149 @@ function BackupStatus() {
 }
 
 // ============================================
+// System Settings (Maintenance Mode)
+// ============================================
+function SystemSettings({ currentUser }) {
+  const [maintenanceActive, setMaintenanceActive] = useState(false);
+  const [maintenanceMessage, setMaintenanceMessage] = useState("");
+  const [updatedAt, setUpdatedAt] = useState(null);
+  const [updatedByEmail, setUpdatedByEmail] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { loadSettings(); }, []);
+
+  const loadSettings = async () => {
+    setLoading(true);
+    try {
+      const { data } = await supabase.from("system_settings").select("*").eq("key", "maintenance_mode").single();
+      if (data) {
+        setMaintenanceActive(data.value === "true");
+        setMaintenanceMessage(data.message || "");
+        setUpdatedAt(data.updated_at);
+        if (data.updated_by) {
+          try {
+            const { data: { session: s } } = await supabase.auth.getSession();
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_creators`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", apikey: ANON_KEY, Authorization: `Bearer ${s?.access_token || ANON_KEY}` },
+              body: JSON.stringify({ creator_ids: [data.updated_by] }),
+            });
+            if (res.ok) {
+              const [user] = await res.json();
+              if (user) setUpdatedByEmail(user.email || `${user.vorname} ${user.nachname}`);
+            }
+          } catch { /* silent */ }
+        }
+      }
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  };
+
+  const toggleMaintenance = async () => {
+    setSaving(true);
+    const newVal = !maintenanceActive;
+    await supabase.from("system_settings").update({
+      value: newVal ? "true" : "false",
+      message: maintenanceMessage.trim() || null,
+      updated_at: new Date().toISOString(),
+      updated_by: currentUser?.id,
+    }).eq("key", "maintenance_mode");
+    setMaintenanceActive(newVal);
+    setUpdatedAt(new Date().toISOString());
+    setUpdatedByEmail(currentUser?.email);
+    setSaving(false);
+  };
+
+  const saveMessage = async () => {
+    setSaving(true);
+    await supabase.from("system_settings").update({
+      message: maintenanceMessage.trim() || null,
+      updated_at: new Date().toISOString(),
+      updated_by: currentUser?.id,
+    }).eq("key", "maintenance_mode");
+    setUpdatedAt(new Date().toISOString());
+    setSaving(false);
+  };
+
+  const fmtDT = (iso) => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return `${d.getDate().toString().padStart(2, "0")}.${(d.getMonth() + 1).toString().padStart(2, "0")}.${d.getFullYear()} ${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+  };
+
+  if (loading) return <div style={{ color: c.textDim, textAlign: "center", padding: 40 }}>Laden...</div>;
+
+  return (
+    <div>
+      <h2 style={{ color: c.text, fontSize: 20, fontWeight: 700, marginBottom: 20 }}>System-Einstellungen</h2>
+
+      {/* Maintenance Mode */}
+      <Card style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <div>
+            <div style={{ color: c.text, fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Maintenance-Modus</div>
+            <div style={{ color: c.textDim, fontSize: 12 }}>Wenn aktiv: App zeigt Wartungsseite, kein Login möglich. Super-Admins haben weiterhin Zugriff.</div>
+          </div>
+          <button onClick={toggleMaintenance} disabled={saving}
+            style={{
+              ...baseBtn, padding: "10px 24px", fontSize: 14, fontWeight: 700,
+              background: maintenanceActive ? c.danger : c.accent,
+              color: maintenanceActive ? "#fff" : "#000",
+              opacity: saving ? 0.6 : 1,
+            }}>
+            {saving ? "..." : maintenanceActive ? "Deaktivieren" : "Aktivieren"}
+          </button>
+        </div>
+
+        {/* Status Banner */}
+        <div style={{
+          padding: "12px 16px", borderRadius: 8, marginBottom: 16,
+          background: maintenanceActive ? c.danger + "15" : c.accent + "15",
+          border: `1px solid ${maintenanceActive ? c.danger : c.accent}33`,
+          display: "flex", alignItems: "center", gap: 10,
+        }}>
+          <div style={{ width: 10, height: 10, borderRadius: "50%", background: maintenanceActive ? c.danger : c.accent }} />
+          <span style={{ color: maintenanceActive ? c.danger : c.accent, fontSize: 13, fontWeight: 600 }}>
+            {maintenanceActive ? "Maintenance-Modus ist AKTIV — App ist für User gesperrt" : "App ist online — normaler Betrieb"}
+          </span>
+        </div>
+
+        {/* Message */}
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ color: c.textDim, fontSize: 11, display: "block", marginBottom: 4 }}>Wartungsnachricht (optional)</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input style={{ ...inputStyle, flex: 1 }} placeholder="z.B. Update auf Version 2.0 — ca. 30 Minuten"
+              value={maintenanceMessage} onChange={(e) => setMaintenanceMessage(e.target.value)} />
+            <button onClick={saveMessage} disabled={saving}
+              style={{ ...baseBtn, background: c.surface, color: c.textDim, border: `1px solid ${c.border}` }}>Speichern</button>
+          </div>
+        </div>
+
+        {/* Last changed */}
+        {updatedAt && (
+          <div style={{ color: c.textMuted, fontSize: 11 }}>
+            Zuletzt geändert: {fmtDT(updatedAt)}{updatedByEmail ? ` von ${updatedByEmail}` : ""}
+          </div>
+        )}
+      </Card>
+
+      {/* Preview */}
+      {maintenanceActive && (
+        <Card>
+          <div style={{ color: c.textDim, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 14 }}>Vorschau der Wartungsseite</div>
+          <div style={{ background: "#0a0a0a", borderRadius: 12, padding: 32, textAlign: "center", border: `1px solid ${c.border}` }}>
+            <div style={{ color: "#22c55e", fontSize: 24, marginBottom: 12 }}>⚽</div>
+            <div style={{ color: "#e5e5e5", fontSize: 20, fontWeight: 800, marginBottom: 8 }}>Kurze Pause</div>
+            <div style={{ color: "#888", fontSize: 13 }}>{maintenanceMessage || "Wir arbeiten gerade an Kicklog und sind gleich wieder da."}</div>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ============================================
 // Club Onboarding Wizard
 // ============================================
 const LIGA_OPTIONS = ["Kreisliga A", "Kreisliga B", "Kreisliga C", "Bezirksliga", "Landesliga", "Verbandsliga", "Oberliga", "Regionalliga", "Sonstige"];
@@ -1791,6 +1934,7 @@ export default function App() {
     { key: "requests", label: "Feature Requests", icon: "◈" },
     { key: "settings", label: "Einstellungen", icon: "⚙" },
     { key: "backup", label: "Backup", icon: "💾" },
+    { key: "system", label: "System", icon: "🔧" },
   ];
 
   return (
@@ -1826,7 +1970,7 @@ export default function App() {
 
       {/* Content */}
       <div style={{ flex: 1, padding: 28, overflowY: "auto" }}>
-        {dataLoading && page !== "requests" && page !== "settings" && page !== "clubs" && page !== "backup" ? (
+        {dataLoading && page !== "requests" && page !== "settings" && page !== "clubs" && page !== "backup" && page !== "system" ? (
           <div style={{ color: c.textDim, textAlign: "center", paddingTop: 60 }}>Daten werden geladen...</div>
         ) : (
           <>
@@ -1836,6 +1980,7 @@ export default function App() {
             {page === "requests" && <FeatureRequests />}
             {page === "settings" && <Settings currentUser={session?.user} />}
             {page === "backup" && <BackupStatus />}
+            {page === "system" && <SystemSettings currentUser={session?.user} />}
           </>
         )}
       </div>
