@@ -1082,8 +1082,16 @@ function BackupStatus() {
   const [runs, setRuns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
+  const [backupStats, setBackupStats] = useState(null);
 
-  useEffect(() => { loadRuns(); }, []);
+  useEffect(() => { loadRuns(); loadStats(); }, []);
+
+  const loadStats = async () => {
+    try {
+      const { data } = await supabase.from("app_settings").select("value").eq("key", "last_backup_stats").single();
+      if (data?.value) setBackupStats(typeof data.value === "string" ? JSON.parse(data.value) : data.value);
+    } catch (e) { /* silent */ }
+  };
 
   const callBackupApi = async (action) => {
     const { data: { session: s } } = await supabase.auth.getSession();
@@ -1178,12 +1186,22 @@ function BackupStatus() {
       ) : (
         <>
           {/* Übersicht Cards */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 12 }}>
             <StatCard label="Letztes Backup" value={lastSuccess ? fmtDateTime(lastSuccess.created_at) : "—"} sub={lastSuccess ? `Dauer: ${fmtDuration(lastSuccess.run_started_at, lastSuccess.updated_at)}` : "Noch kein Backup"} color={c.accent} />
             <StatCard label="Erfolgsrate" value={runs.length ? `${Math.round(successCount / runs.length * 100)}%` : "—"} sub={`${successCount} / ${runs.length} Runs`} color={failCount === 0 ? c.accent : c.warn} />
             <StatCard label="Fehlgeschlagen" value={failCount} sub={lastFailure ? `Letzter: ${fmtDateTime(lastFailure.created_at)}` : "Keine Fehler"} color={failCount > 0 ? c.danger : c.accent} />
             <StatCard label="Zeitplan" value="02:00 UTC" sub="Täglich automatisch" color={c.info} />
           </div>
+
+          {/* Dateigrößen */}
+          {backupStats && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
+              <StatCard label="Datenbank" value={backupStats.db_size || "—"} sub={`${backupStats.db_lines || 0} SQL-Zeilen`} color={c.accent} />
+              <StatCard label="Storage Files" value={backupStats.storage_size || "—"} sub={`${backupStats.storage_files || 0} Dateien`} color={c.info} />
+              <StatCard label="Environment" value={backupStats.env_size || "—"} sub="GPG-verschlüsselt" color={c.warn} />
+              <StatCard label="Typ" value={backupStats.event === "schedule" ? "Automatisch" : "Manuell"} sub={backupStats.date ? fmtDateTime(backupStats.date) : "—"} color={backupStats.event === "schedule" ? c.info : c.accent} />
+            </div>
+          )}
 
           {/* Backup-Inhalte */}
           <Card style={{ marginBottom: 16 }}>
