@@ -1055,6 +1055,22 @@ function Settings({ currentUser }) {
         </div>
         {googleKeySaved && <div style={{ color: c.accent, fontSize: 12, marginTop: 8 }}>✓ Gespeichert — gilt für alle Teams</div>}
       </Card>
+
+      {/* GitHub Token für Backup API */}
+      <Card style={{ marginTop: 16 }}>
+        <div style={{ color: c.textDim, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 14 }}>GitHub Token (Backup API)</div>
+        <p style={{ color: c.textDim, fontSize: 12, marginBottom: 10 }}>Wird für Backup-Status + manuelles Auslösen benötigt. Token von <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer" style={{ color: c.info }}>github.com/settings/tokens</a> mit "repo" Scope.</p>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input style={{ ...inputStyle, flex: 1 }} type="password" placeholder="ghp_... oder gho_..." id="github-token-input" />
+          <button onClick={async () => {
+            const val = document.getElementById("github-token-input").value.trim();
+            if (!val) return;
+            await supabase.from("app_settings").upsert({ key: "github_token", value: val, updated_at: new Date().toISOString() });
+            document.getElementById("github-token-input").value = "";
+            alert("GitHub Token gespeichert.");
+          }} style={{ ...baseBtn, background: c.accent, color: "#000" }}>Speichern</button>
+        </div>
+      </Card>
     </div>
   );
 }
