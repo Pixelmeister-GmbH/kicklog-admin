@@ -1088,9 +1088,16 @@ function BackupStatus() {
   const callBackupApi = async (action) => {
     const { data: { session: s } } = await supabase.auth.getSession();
     if (!s?.access_token) throw new Error("Keine aktive Session — bitte neu einloggen");
+    // Debug: check token expiry
+    try {
+      const payload = JSON.parse(atob(s.access_token.split(".")[1]));
+      const exp = new Date(payload.exp * 1000);
+      const now = new Date();
+      if (exp < now) throw new Error(`Token abgelaufen (${exp.toISOString()}). Bitte Seite neu laden.`);
+    } catch (e) { if (e.message.includes("abgelaufen")) throw e; }
     const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-backup-status`, {
       method: "POST",
-      headers: { "Authorization": `Bearer ${s.access_token}`, "Content-Type": "application/json" },
+      headers: { "Authorization": `Bearer ${s.access_token}`, "Content-Type": "application/json", "apikey": ANON_KEY },
       body: JSON.stringify({ action }),
     });
     const text = await res.text();
