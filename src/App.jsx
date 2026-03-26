@@ -1087,13 +1087,17 @@ function BackupStatus() {
 
   const callBackupApi = async (action) => {
     const { data: { session: s } } = await supabase.auth.getSession();
+    if (!s?.access_token) throw new Error("Keine aktive Session — bitte neu einloggen");
     const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-backup-status`, {
       method: "POST",
-      headers: { "Authorization": `Bearer ${s?.access_token}`, "Content-Type": "application/json" },
+      headers: { "Authorization": `Bearer ${s.access_token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ action }),
     });
-    if (!res.ok) { const err = await res.json(); throw new Error(err.error || res.statusText); }
-    return res.json();
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { throw new Error(`Antwort nicht JSON: ${text.substring(0, 200)}`); }
+    if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}: ${text.substring(0, 200)}`);
+    return data;
   };
 
   const [loadError, setLoadError] = useState(null);
@@ -1113,7 +1117,7 @@ function BackupStatus() {
       await callBackupApi("trigger");
       alert("Backup gestartet! Status wird in 1-2 Minuten aktualisiert.");
       setTimeout(loadRuns, 10000);
-    } catch (e) { alert("Fehler: " + e.message); }
+    } catch (e) { alert("Backup Fehler: " + (e.message || JSON.stringify(e))); }
     setTriggering(false);
   };
 
