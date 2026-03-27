@@ -1558,72 +1558,68 @@ function TrainingLibrary() {
         </div>
       </Card>
 
-      {/* Topics verwalten */}
-      <Card style={{ marginBottom: 16 }}>
-        <button onClick={() => setShowTopics(!showTopics)}
-          style={{ ...baseBtn, background: "transparent", color: c.textDim, border: "none", padding: 0, fontSize: 12, fontWeight: 600 }}>
-          {showTopics ? "▾" : "▸"} Schwerpunkte verwalten ({topics.length})
-        </button>
-        {showTopics && (
-          <div style={{ marginTop: 12 }}>
-            {topics.map((t) => (
-              <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: `1px solid ${c.border}22` }}>
-                <span style={{ color: t.is_active ? c.text : c.textMuted, fontSize: 13, flex: 1, textDecoration: t.is_active ? "none" : "line-through" }}>{t.name}</span>
-                <span style={{ color: c.textDim, fontSize: 11 }}>#{t.sort_order}</span>
-                <button onClick={() => toggleTopic(t.id, t.is_active)}
-                  style={{ ...baseBtn, fontSize: 10, padding: "2px 8px", background: t.is_active ? c.dangerDim : c.accentDim, color: t.is_active ? c.danger : c.accent, border: `1px solid ${t.is_active ? c.danger : c.accent}33` }}>
-                  {t.is_active ? "Deaktivieren" : "Aktivieren"}
-                </button>
-                <button onClick={() => deleteTopic(t.id)}
-                  style={{ ...baseBtn, fontSize: 10, padding: "2px 8px", background: c.dangerDim, color: c.danger, border: `1px solid ${c.danger}33` }}>
-                  Löschen
-                </button>
+      {/* Schwerpunkte + Altersgruppen in 2 Spalten */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+        {/* Schwerpunkte */}
+        <Card>
+          <div style={{ color: c.textDim, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 12 }}>Schwerpunkte ({topics.length})</div>
+          {topics.map((t, i) => (
+            <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 0", borderBottom: `1px solid ${c.border}22` }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                <button onClick={async () => { if (i === 0) return; const prev = topics[i - 1]; await Promise.all([supabase.from("training_topics").update({ sort_order: prev.sort_order }).eq("id", t.id), supabase.from("training_topics").update({ sort_order: t.sort_order }).eq("id", prev.id)]); loadAll(); }}
+                  disabled={i === 0} style={{ ...baseBtn, padding: 0, border: "none", background: "transparent", color: i === 0 ? c.border : c.textDim, fontSize: 10, cursor: i === 0 ? "default" : "pointer", lineHeight: 1 }}>▲</button>
+                <button onClick={async () => { if (i === topics.length - 1) return; const next = topics[i + 1]; await Promise.all([supabase.from("training_topics").update({ sort_order: next.sort_order }).eq("id", t.id), supabase.from("training_topics").update({ sort_order: t.sort_order }).eq("id", next.id)]); loadAll(); }}
+                  disabled={i === topics.length - 1} style={{ ...baseBtn, padding: 0, border: "none", background: "transparent", color: i === topics.length - 1 ? c.border : c.textDim, fontSize: 10, cursor: i === topics.length - 1 ? "default" : "pointer", lineHeight: 1 }}>▼</button>
               </div>
-            ))}
-            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <input style={{ ...inputStyle, flex: 1 }} placeholder="Neuer Schwerpunkt" value={newTopic.name} onChange={(e) => setNewTopic({ ...newTopic, name: e.target.value })} />
-              <input style={{ ...inputStyle, width: 60 }} type="number" placeholder="#" value={newTopic.sort_order} onChange={(e) => setNewTopic({ ...newTopic, sort_order: e.target.value })} />
-              <button onClick={addTopic} style={{ ...baseBtn, background: c.accent, color: "#000" }}>Hinzufügen</button>
+              <input style={{ ...inputStyle, flex: 1, padding: "4px 8px", fontSize: 12, opacity: t.is_active ? 1 : 0.5 }} value={t.name}
+                onChange={(e) => setTopics(topics.map((x) => x.id === t.id ? { ...x, name: e.target.value } : x))}
+                onBlur={async () => { await supabase.from("training_topics").update({ name: t.name }).eq("id", t.id); }} />
+              <button onClick={() => toggleTopic(t.id, t.is_active)} title={t.is_active ? "Deaktivieren" : "Aktivieren"}
+                style={{ ...baseBtn, fontSize: 10, padding: "2px 6px", background: t.is_active ? c.accentDim : c.dangerDim, color: t.is_active ? c.accent : c.danger, border: `1px solid ${t.is_active ? c.accent : c.danger}33` }}>
+                {t.is_active ? "✓" : "✕"}
+              </button>
+              <button onClick={() => deleteTopic(t.id)} title="Löschen"
+                style={{ ...baseBtn, fontSize: 10, padding: "2px 6px", background: c.dangerDim, color: c.danger, border: `1px solid ${c.danger}33` }}>🗑</button>
             </div>
+          ))}
+          <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+            <input style={{ ...inputStyle, flex: 1, padding: "4px 8px", fontSize: 12 }} placeholder="Neuer Schwerpunkt" value={newTopic.name} onChange={(e) => setNewTopic({ ...newTopic, name: e.target.value })}
+              onKeyDown={(e) => { if (e.key === "Enter") addTopic(); }} />
+            <button onClick={addTopic} style={{ ...baseBtn, background: c.accent, color: "#000", fontSize: 11 }}>+</button>
           </div>
-        )}
-      </Card>
+        </Card>
 
-      {/* Altersgruppen verwalten */}
-      <Card style={{ marginBottom: 16 }}>
-        <button onClick={() => setShowAgeGroups(!showAgeGroups)}
-          style={{ ...baseBtn, background: "transparent", color: c.textDim, border: "none", padding: 0, fontSize: 12, fontWeight: 600 }}>
-          {showAgeGroups ? "▾" : "▸"} Altersgruppen verwalten ({ageGroups.length})
-        </button>
-        {showAgeGroups && (
-          <div style={{ marginTop: 12 }}>
-            {ageGroups.map((ag) => (
-              <div key={ag.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: `1px solid ${c.border}22` }}>
-                <span style={{ color: c.text, fontSize: 13, flex: 1 }}>{ag.name}</span>
-                <span style={{ color: c.textDim, fontSize: 11 }}>#{ag.sort_order}</span>
-                <button onClick={async () => {
-                  const used = plans.some((p) => p.age_group === ag.name);
-                  if (used) { alert("Altersgruppe wird von Plänen verwendet und kann nicht gelöscht werden."); return; }
-                  if (!confirm(`"${ag.name}" löschen?`)) return;
-                  await supabase.from("training_age_groups").delete().eq("id", ag.id);
-                  loadAll();
-                }} style={{ ...baseBtn, fontSize: 10, padding: "2px 8px", background: c.dangerDim, color: c.danger, border: `1px solid ${c.danger}33` }}>
-                  Löschen
-                </button>
+        {/* Altersgruppen */}
+        <Card>
+          <div style={{ color: c.textDim, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 12 }}>Altersgruppen ({ageGroups.length})</div>
+          {ageGroups.map((ag, i) => (
+            <div key={ag.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 0", borderBottom: `1px solid ${c.border}22` }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                <button onClick={async () => { if (i === 0) return; const prev = ageGroups[i - 1]; await Promise.all([supabase.from("training_age_groups").update({ sort_order: prev.sort_order }).eq("id", ag.id), supabase.from("training_age_groups").update({ sort_order: ag.sort_order }).eq("id", prev.id)]); loadAll(); }}
+                  disabled={i === 0} style={{ ...baseBtn, padding: 0, border: "none", background: "transparent", color: i === 0 ? c.border : c.textDim, fontSize: 10, cursor: i === 0 ? "default" : "pointer", lineHeight: 1 }}>▲</button>
+                <button onClick={async () => { if (i === ageGroups.length - 1) return; const next = ageGroups[i + 1]; await Promise.all([supabase.from("training_age_groups").update({ sort_order: next.sort_order }).eq("id", ag.id), supabase.from("training_age_groups").update({ sort_order: ag.sort_order }).eq("id", next.id)]); loadAll(); }}
+                  disabled={i === ageGroups.length - 1} style={{ ...baseBtn, padding: 0, border: "none", background: "transparent", color: i === ageGroups.length - 1 ? c.border : c.textDim, fontSize: 10, cursor: i === ageGroups.length - 1 ? "default" : "pointer", lineHeight: 1 }}>▼</button>
               </div>
-            ))}
-            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <input style={{ ...inputStyle, flex: 1 }} placeholder="z.B. U19" value={newAgeGroup} onChange={(e) => setNewAgeGroup(e.target.value)} />
+              <input style={{ ...inputStyle, flex: 1, padding: "4px 8px", fontSize: 12 }} value={ag.name}
+                onChange={(e) => setAgeGroups(ageGroups.map((x) => x.id === ag.id ? { ...x, name: e.target.value } : x))}
+                onBlur={async () => { await supabase.from("training_age_groups").update({ name: ag.name }).eq("id", ag.id); }} />
               <button onClick={async () => {
-                if (!newAgeGroup.trim()) return;
-                await supabase.from("training_age_groups").insert({ name: newAgeGroup.trim(), sort_order: ageGroups.length + 1 });
-                setNewAgeGroup("");
+                const used = plans.some((p) => p.age_group === ag.name);
+                if (used) { alert("Wird von Plänen verwendet — kann nicht gelöscht werden."); return; }
+                if (!confirm(`"${ag.name}" löschen?`)) return;
+                await supabase.from("training_age_groups").delete().eq("id", ag.id);
                 loadAll();
-              }} style={{ ...baseBtn, background: c.accent, color: "#000" }}>Hinzufügen</button>
+              }} title="Löschen" style={{ ...baseBtn, fontSize: 10, padding: "2px 6px", background: c.dangerDim, color: c.danger, border: `1px solid ${c.danger}33` }}>🗑</button>
             </div>
+          ))}
+          <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+            <input style={{ ...inputStyle, flex: 1, padding: "4px 8px", fontSize: 12 }} placeholder="z.B. U19" value={newAgeGroup} onChange={(e) => setNewAgeGroup(e.target.value)}
+              onKeyDown={async (e) => { if (e.key === "Enter" && newAgeGroup.trim()) { await supabase.from("training_age_groups").insert({ name: newAgeGroup.trim(), sort_order: ageGroups.length + 1 }); setNewAgeGroup(""); loadAll(); } }} />
+            <button onClick={async () => { if (!newAgeGroup.trim()) return; await supabase.from("training_age_groups").insert({ name: newAgeGroup.trim(), sort_order: ageGroups.length + 1 }); setNewAgeGroup(""); loadAll(); }}
+              style={{ ...baseBtn, background: c.accent, color: "#000", fontSize: 11 }}>+</button>
           </div>
-        )}
-      </Card>
+        </Card>
+      </div>
 
       {/* Filters */}
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
