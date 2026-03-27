@@ -1452,6 +1452,14 @@ function TrainingLibrary() {
     loadAll();
   };
 
+  const deleteTopic = async (id) => {
+    const used = plans.some((p) => p.topic_id === id);
+    if (used) { alert("Schwerpunkt wird von Plänen verwendet und kann nicht gelöscht werden. Deaktiviere ihn stattdessen."); return; }
+    if (!confirm("Schwerpunkt löschen?")) return;
+    await supabase.from("training_topics").delete().eq("id", id);
+    loadAll();
+  };
+
   const togglePlan = async (id, active) => {
     await supabase.from("training_plans").update({ is_active: !active }).eq("id", id);
     loadAll();
@@ -1562,6 +1570,10 @@ function TrainingLibrary() {
                 <button onClick={() => toggleTopic(t.id, t.is_active)}
                   style={{ ...baseBtn, fontSize: 10, padding: "2px 8px", background: t.is_active ? c.dangerDim : c.accentDim, color: t.is_active ? c.danger : c.accent, border: `1px solid ${t.is_active ? c.danger : c.accent}33` }}>
                   {t.is_active ? "Deaktivieren" : "Aktivieren"}
+                </button>
+                <button onClick={() => deleteTopic(t.id)}
+                  style={{ ...baseBtn, fontSize: 10, padding: "2px 8px", background: c.dangerDim, color: c.danger, border: `1px solid ${c.danger}33` }}>
+                  Löschen
                 </button>
               </div>
             ))}
