@@ -1406,15 +1406,15 @@ function SystemSettings({ currentUser }) {
 // ============================================
 // Training Library
 // ============================================
-const AGE_GROUPS = ["U10", "U12", "U14", "U16", "U18", "Senior"];
-
 function TrainingLibrary() {
   const [topics, setTopics] = useState([]);
+  const [ageGroups, setAgeGroups] = useState([]);
   const [plans, setPlans] = useState([]);
   const [overview, setOverview] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
   const [showTopics, setShowTopics] = useState(false);
+  const [showAgeGroups, setShowAgeGroups] = useState(false);
   const [filterAge, setFilterAge] = useState(null);
   const [filterTopic, setFilterTopic] = useState(null);
   const [search, setSearch] = useState("");
@@ -1422,17 +1422,20 @@ function TrainingLibrary() {
   const [uploadFile, setUploadFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [newTopic, setNewTopic] = useState({ name: "", sort_order: 0 });
+  const [newAgeGroup, setNewAgeGroup] = useState("");
 
   useEffect(() => { loadAll(); }, []);
 
   const loadAll = async () => {
     setLoading(true);
-    const [{ data: t }, { data: p }, { data: o }] = await Promise.all([
+    const [{ data: t }, { data: ag }, { data: p }, { data: o }] = await Promise.all([
       supabase.from("training_topics").select("*").order("sort_order"),
+      supabase.from("training_age_groups").select("*").order("sort_order"),
       supabase.from("training_plans_with_stats").select("*").order("created_at", { ascending: false }),
       supabase.rpc("get_library_overview"),
     ]);
     setTopics(t || []);
+    setAgeGroups(ag || []);
     setPlans(p || []);
     setOverview(o || []);
     setLoading(false);
@@ -1533,17 +1536,17 @@ function TrainingLibrary() {
               </tr>
             </thead>
             <tbody>
-              {AGE_GROUPS.map((age) => (
-                <tr key={age}>
-                  <td style={{ padding: "8px 12px", color: c.text, fontWeight: 600, borderBottom: `1px solid ${c.border}22` }}>{age}</td>
+              {ageGroups.map((ag) => (
+                <tr key={ag.name}>
+                  <td style={{ padding: "8px 12px", color: c.text, fontWeight: 600, borderBottom: `1px solid ${c.border}22` }}>{ag.name}</td>
                   {activeTopics.map((t) => {
-                    const count = getOverviewCount(age, t.id);
+                    const count = getOverviewCount(ag.name, t.id);
                     return (
                       <td key={t.id}
-                        onClick={() => { setFilterAge(age); setFilterTopic(t.id); }}
+                        onClick={() => { setFilterAge(ag.name); setFilterTopic(t.id); }}
                         style={{ padding: "8px 12px", textAlign: "center", cursor: "pointer", borderBottom: `1px solid ${c.border}22`,
                           color: count > 0 ? c.accent : c.textMuted, fontWeight: count > 0 ? 700 : 400,
-                          background: filterAge === age && filterTopic === t.id ? c.accent + "22" : "transparent" }}>
+                          background: filterAge === ag.name && filterTopic === t.id ? c.accent + "22" : "transparent" }}>
                         {count > 0 ? `${count} Pläne` : "—"}
                       </td>
                     );
@@ -1586,12 +1589,48 @@ function TrainingLibrary() {
         )}
       </Card>
 
+      {/* Altersgruppen verwalten */}
+      <Card style={{ marginBottom: 16 }}>
+        <button onClick={() => setShowAgeGroups(!showAgeGroups)}
+          style={{ ...baseBtn, background: "transparent", color: c.textDim, border: "none", padding: 0, fontSize: 12, fontWeight: 600 }}>
+          {showAgeGroups ? "▾" : "▸"} Altersgruppen verwalten ({ageGroups.length})
+        </button>
+        {showAgeGroups && (
+          <div style={{ marginTop: 12 }}>
+            {ageGroups.map((ag) => (
+              <div key={ag.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: `1px solid ${c.border}22` }}>
+                <span style={{ color: c.text, fontSize: 13, flex: 1 }}>{ag.name}</span>
+                <span style={{ color: c.textDim, fontSize: 11 }}>#{ag.sort_order}</span>
+                <button onClick={async () => {
+                  const used = plans.some((p) => p.age_group === ag.name);
+                  if (used) { alert("Altersgruppe wird von Plänen verwendet und kann nicht gelöscht werden."); return; }
+                  if (!confirm(`"${ag.name}" löschen?`)) return;
+                  await supabase.from("training_age_groups").delete().eq("id", ag.id);
+                  loadAll();
+                }} style={{ ...baseBtn, fontSize: 10, padding: "2px 8px", background: c.dangerDim, color: c.danger, border: `1px solid ${c.danger}33` }}>
+                  Löschen
+                </button>
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <input style={{ ...inputStyle, flex: 1 }} placeholder="z.B. U19" value={newAgeGroup} onChange={(e) => setNewAgeGroup(e.target.value)} />
+              <button onClick={async () => {
+                if (!newAgeGroup.trim()) return;
+                await supabase.from("training_age_groups").insert({ name: newAgeGroup.trim(), sort_order: ageGroups.length + 1 });
+                setNewAgeGroup("");
+                loadAll();
+              }} style={{ ...baseBtn, background: c.accent, color: "#000" }}>Hinzufügen</button>
+            </div>
+          </div>
+        )}
+      </Card>
+
       {/* Filters */}
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
         <input style={{ ...inputStyle, width: 220 }} placeholder="Titel suchen..." value={search} onChange={(e) => setSearch(e.target.value)} />
         <select style={inputStyle} value={filterAge || ""} onChange={(e) => setFilterAge(e.target.value || null)}>
           <option value="">Alle Altersgruppen</option>
-          {AGE_GROUPS.map((a) => <option key={a} value={a}>{a}</option>)}
+          {ageGroups.map((a) => <option key={a.name} value={a.name}>{a.name}</option>)}
         </select>
         <select style={inputStyle} value={filterTopic || ""} onChange={(e) => setFilterTopic(e.target.value || null)}>
           <option value="">Alle Schwerpunkte</option>
@@ -1645,7 +1684,7 @@ function TrainingLibrary() {
               <div>
                 <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Altersgruppe *</label>
                 <select style={inputStyle} value={uploadForm.age_group} onChange={(e) => setUploadForm({ ...uploadForm, age_group: e.target.value })}>
-                  {AGE_GROUPS.map((a) => <option key={a} value={a}>{a}</option>)}
+                  {ageGroups.map((a) => <option key={a.name} value={a.name}>{a.name}</option>)}
                 </select>
               </div>
               <div>
