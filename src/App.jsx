@@ -1404,6 +1404,271 @@ function SystemSettings({ currentUser }) {
 }
 
 // ============================================
+// Training Library
+// ============================================
+const AGE_GROUPS = ["U10", "U12", "U14", "U16", "U18", "Senior"];
+
+function TrainingLibrary() {
+  const [topics, setTopics] = useState([]);
+  const [plans, setPlans] = useState([]);
+  const [overview, setOverview] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showUpload, setShowUpload] = useState(false);
+  const [showTopics, setShowTopics] = useState(false);
+  const [filterAge, setFilterAge] = useState(null);
+  const [filterTopic, setFilterTopic] = useState(null);
+  const [search, setSearch] = useState("");
+  const [uploadForm, setUploadForm] = useState({ title: "", age_group: "U12", topic_id: "", author_name: "", description: "" });
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [newTopic, setNewTopic] = useState({ name: "", sort_order: 0 });
+
+  useEffect(() => { loadAll(); }, []);
+
+  const loadAll = async () => {
+    setLoading(true);
+    const [{ data: t }, { data: p }, { data: o }] = await Promise.all([
+      supabase.from("training_topics").select("*").order("sort_order"),
+      supabase.from("training_plans_with_stats").select("*").order("created_at", { ascending: false }),
+      supabase.rpc("get_library_overview"),
+    ]);
+    setTopics(t || []);
+    setPlans(p || []);
+    setOverview(o || []);
+    setLoading(false);
+  };
+
+  const activeTopics = topics.filter((t) => t.is_active);
+
+  const addTopic = async () => {
+    if (!newTopic.name.trim()) return;
+    await supabase.from("training_topics").insert({ name: newTopic.name.trim(), sort_order: parseInt(newTopic.sort_order) || topics.length + 1 });
+    setNewTopic({ name: "", sort_order: 0 });
+    loadAll();
+  };
+
+  const toggleTopic = async (id, active) => {
+    await supabase.from("training_topics").update({ is_active: !active }).eq("id", id);
+    loadAll();
+  };
+
+  const togglePlan = async (id, active) => {
+    await supabase.from("training_plans").update({ is_active: !active }).eq("id", id);
+    loadAll();
+  };
+
+  const uploadPlan = async () => {
+    if (!uploadForm.title.trim() || !uploadForm.author_name.trim() || !uploadForm.topic_id || !uploadFile) {
+      alert("Titel, Autor, Schwerpunkt und PDF sind Pflicht."); return;
+    }
+    if (uploadFile.size > 10 * 1024 * 1024) { alert("Datei zu groß (max. 10 MB)."); return; }
+    if (!uploadFile.name.endsWith(".pdf")) { alert("Nur PDF-Dateien erlaubt."); return; }
+    setUploading(true);
+    try {
+      const topicName = topics.find((t) => t.id === uploadForm.topic_id)?.name || "other";
+      const path = `${uploadForm.age_group}/${topicName}/${crypto.randomUUID()}.pdf`;
+      const { error: uploadErr } = await supabaseAdmin.storage.from("training-plans").upload(path, uploadFile, { contentType: "application/pdf" });
+      if (uploadErr) throw uploadErr;
+      const { error: insertErr } = await supabase.from("training_plans").insert({
+        title: uploadForm.title.trim(),
+        age_group: uploadForm.age_group,
+        topic_id: uploadForm.topic_id,
+        pdf_path: path,
+        description: uploadForm.description.trim() || null,
+        author_name: uploadForm.author_name.trim(),
+      });
+      if (insertErr) throw insertErr;
+      setShowUpload(false);
+      setUploadForm({ title: "", age_group: "U12", topic_id: "", author_name: "", description: "" });
+      setUploadFile(null);
+      loadAll();
+    } catch (err) { alert("Fehler: " + err.message); }
+    setUploading(false);
+  };
+
+  const filtered = plans.filter((p) => {
+    if (filterAge && p.age_group !== filterAge) return false;
+    if (filterTopic && p.topic_id !== filterTopic) return false;
+    if (search && !p.title.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  const getOverviewCount = (age, topicId) => {
+    const row = overview.find((o) => o.age_group === age && o.topic_id === topicId);
+    return row?.plan_count || 0;
+  };
+
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString("de-DE") : "—";
+
+  if (loading) return <div style={{ color: c.textDim, textAlign: "center", padding: 40 }}>Laden...</div>;
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <h2 style={{ color: c.text, fontSize: 20, fontWeight: 700 }}>Trainingsplan-Bibliothek ({plans.length})</h2>
+        <button onClick={() => setShowUpload(true)} style={{ ...baseBtn, background: c.accent, color: "#000" }}>+ Plan hinzufügen</button>
+      </div>
+
+      {/* Matrix */}
+      <Card style={{ marginBottom: 16, padding: 0, overflow: "hidden" }}>
+        <div style={{ padding: "12px 16px", borderBottom: `1px solid ${c.border}` }}>
+          <span style={{ color: c.textDim, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Übersicht</span>
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead>
+              <tr>
+                <th style={{ padding: "8px 12px", textAlign: "left", color: c.textDim, fontSize: 10, fontWeight: 700, borderBottom: `1px solid ${c.border}` }}></th>
+                {activeTopics.map((t) => (
+                  <th key={t.id} style={{ padding: "8px 12px", textAlign: "center", color: c.accent, fontSize: 10, fontWeight: 700, borderBottom: `1px solid ${c.border}` }}>{t.name}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {AGE_GROUPS.map((age) => (
+                <tr key={age}>
+                  <td style={{ padding: "8px 12px", color: c.text, fontWeight: 600, borderBottom: `1px solid ${c.border}22` }}>{age}</td>
+                  {activeTopics.map((t) => {
+                    const count = getOverviewCount(age, t.id);
+                    return (
+                      <td key={t.id}
+                        onClick={() => { setFilterAge(age); setFilterTopic(t.id); }}
+                        style={{ padding: "8px 12px", textAlign: "center", cursor: "pointer", borderBottom: `1px solid ${c.border}22`,
+                          color: count > 0 ? c.accent : c.textMuted, fontWeight: count > 0 ? 700 : 400,
+                          background: filterAge === age && filterTopic === t.id ? c.accent + "22" : "transparent" }}>
+                        {count > 0 ? `${count} Pläne` : "—"}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* Topics verwalten */}
+      <Card style={{ marginBottom: 16 }}>
+        <button onClick={() => setShowTopics(!showTopics)}
+          style={{ ...baseBtn, background: "transparent", color: c.textDim, border: "none", padding: 0, fontSize: 12, fontWeight: 600 }}>
+          {showTopics ? "▾" : "▸"} Schwerpunkte verwalten ({topics.length})
+        </button>
+        {showTopics && (
+          <div style={{ marginTop: 12 }}>
+            {topics.map((t) => (
+              <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: `1px solid ${c.border}22` }}>
+                <span style={{ color: t.is_active ? c.text : c.textMuted, fontSize: 13, flex: 1, textDecoration: t.is_active ? "none" : "line-through" }}>{t.name}</span>
+                <span style={{ color: c.textDim, fontSize: 11 }}>#{t.sort_order}</span>
+                <button onClick={() => toggleTopic(t.id, t.is_active)}
+                  style={{ ...baseBtn, fontSize: 10, padding: "2px 8px", background: t.is_active ? c.dangerDim : c.accentDim, color: t.is_active ? c.danger : c.accent, border: `1px solid ${t.is_active ? c.danger : c.accent}33` }}>
+                  {t.is_active ? "Deaktivieren" : "Aktivieren"}
+                </button>
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <input style={{ ...inputStyle, flex: 1 }} placeholder="Neuer Schwerpunkt" value={newTopic.name} onChange={(e) => setNewTopic({ ...newTopic, name: e.target.value })} />
+              <input style={{ ...inputStyle, width: 60 }} type="number" placeholder="#" value={newTopic.sort_order} onChange={(e) => setNewTopic({ ...newTopic, sort_order: e.target.value })} />
+              <button onClick={addTopic} style={{ ...baseBtn, background: c.accent, color: "#000" }}>Hinzufügen</button>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Filters */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+        <input style={{ ...inputStyle, width: 220 }} placeholder="Titel suchen..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        <select style={inputStyle} value={filterAge || ""} onChange={(e) => setFilterAge(e.target.value || null)}>
+          <option value="">Alle Altersgruppen</option>
+          {AGE_GROUPS.map((a) => <option key={a} value={a}>{a}</option>)}
+        </select>
+        <select style={inputStyle} value={filterTopic || ""} onChange={(e) => setFilterTopic(e.target.value || null)}>
+          <option value="">Alle Schwerpunkte</option>
+          {activeTopics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+        {(filterAge || filterTopic || search) && (
+          <button onClick={() => { setFilterAge(null); setFilterTopic(null); setSearch(""); }} style={{ ...baseBtn, background: c.dangerDim, color: c.danger, border: `1px solid ${c.danger}33`, fontSize: 11 }}>✕ Filter zurücksetzen</button>
+        )}
+      </div>
+
+      {/* Plan Table */}
+      <Card style={{ padding: 0, overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 80px 120px 120px 70px 100px 70px", gap: 0 }}>
+          {["Titel", "Alter", "Schwerpunkt", "Autor", "Nutzungen", "Datum", "Aktiv"].map((h) => (
+            <div key={h} style={{ color: c.textDim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, padding: "10px 12px", borderBottom: `1px solid ${c.border}` }}>{h}</div>
+          ))}
+          {filtered.length === 0 && (
+            <div style={{ gridColumn: "1/-1", padding: 24, color: c.textDim, textAlign: "center", fontSize: 13 }}>Keine Pläne gefunden.</div>
+          )}
+          {filtered.map((p) => (
+            <React.Fragment key={p.id}>
+              <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ color: c.info, fontSize: 14 }}>📄</span>
+                <span style={{ color: c.text, fontSize: 13, fontWeight: 500 }}>{p.title}</span>
+              </div>
+              <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.text, fontSize: 12 }}>{p.age_group}</div>
+              <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.accent, fontSize: 12 }}>{p.topic_name}</div>
+              <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.textDim, fontSize: 12 }}>{p.author_name}</div>
+              <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.textDim, fontSize: 12, textAlign: "center" }}>{p.usage_count}</div>
+              <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.textDim, fontSize: 11 }}>{fmtDate(p.created_at)}</div>
+              <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, display: "flex", alignItems: "center" }}>
+                <button onClick={() => togglePlan(p.id, p.is_active)}
+                  style={{ ...baseBtn, fontSize: 10, padding: "2px 6px", background: p.is_active ? c.accentDim : c.dangerDim, color: p.is_active ? c.accent : c.danger, border: `1px solid ${p.is_active ? c.accent : c.danger}33` }}>
+                  {p.is_active ? "✓" : "✕"}
+                </button>
+              </div>
+            </React.Fragment>
+          ))}
+        </div>
+      </Card>
+
+      {/* Upload Modal */}
+      {showUpload && (
+        <Modal title="Plan hinzufügen" onClose={() => setShowUpload(false)} width={520}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div>
+              <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Titel *</label>
+              <input style={inputStyle} value={uploadForm.title} onChange={(e) => setUploadForm({ ...uploadForm, title: e.target.value })} placeholder="z.B. Dribbling Parcours U12" />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Altersgruppe *</label>
+                <select style={inputStyle} value={uploadForm.age_group} onChange={(e) => setUploadForm({ ...uploadForm, age_group: e.target.value })}>
+                  {AGE_GROUPS.map((a) => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Schwerpunkt *</label>
+                <select style={inputStyle} value={uploadForm.topic_id} onChange={(e) => setUploadForm({ ...uploadForm, topic_id: e.target.value })}>
+                  <option value="">— wählen —</option>
+                  {activeTopics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Autor *</label>
+              <input style={inputStyle} value={uploadForm.author_name} onChange={(e) => setUploadForm({ ...uploadForm, author_name: e.target.value })} placeholder="z.B. Dirk Otten" />
+            </div>
+            <div>
+              <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Beschreibung (optional)</label>
+              <textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical" }} value={uploadForm.description} onChange={(e) => setUploadForm({ ...uploadForm, description: e.target.value })} placeholder="Kurze Beschreibung..." />
+            </div>
+            <div>
+              <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>PDF-Datei * (max. 10 MB)</label>
+              <input type="file" accept=".pdf" onChange={(e) => setUploadFile(e.target.files[0])}
+                style={{ color: c.text, fontSize: 13 }} />
+            </div>
+            <button onClick={uploadPlan} disabled={uploading}
+              style={{ ...baseBtn, background: uploading ? c.textDim : c.accent, color: "#000", opacity: uploading ? 0.6 : 1 }}>
+              {uploading ? "Wird hochgeladen..." : "Plan hochladen"}
+            </button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ============================================
 // Club Onboarding Wizard
 // ============================================
 const LIGA_OPTIONS = ["Kreisliga A", "Kreisliga B", "Kreisliga C", "Bezirksliga", "Landesliga", "Verbandsliga", "Oberliga", "Regionalliga", "Sonstige"];
@@ -1945,6 +2210,7 @@ export default function App() {
       requests: <svg {...s} viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>,
       settings: <svg {...s} viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
       backup: <svg {...s} viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+      library: <svg {...s} viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="12" y1="6" x2="12" y2="13"/><polyline points="9 10 12 13 15 10"/></svg>,
       system: <svg {...s} viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>,
     };
     return icons[name] || null;
@@ -1957,6 +2223,7 @@ export default function App() {
     { key: "settings", label: "Einstellungen" },
     { key: "backup", label: "Backup" },
     { key: "system", label: "System" },
+    { key: "library", label: "Trainingsplan-Bibliothek" },
   ];
 
   return (
@@ -1992,7 +2259,7 @@ export default function App() {
 
       {/* Content */}
       <div style={{ flex: 1, padding: 28, overflowY: "auto" }}>
-        {dataLoading && page !== "requests" && page !== "settings" && page !== "clubs" && page !== "backup" && page !== "system" ? (
+        {dataLoading && page !== "requests" && page !== "settings" && page !== "clubs" && page !== "backup" && page !== "system" && page !== "library" ? (
           <div style={{ color: c.textDim, textAlign: "center", paddingTop: 60 }}>Daten werden geladen...</div>
         ) : (
           <>
@@ -2003,6 +2270,7 @@ export default function App() {
             {page === "settings" && <Settings currentUser={session?.user} />}
             {page === "backup" && <BackupStatus />}
             {page === "system" && <SystemSettings currentUser={session?.user} />}
+            {page === "library" && <TrainingLibrary />}
           </>
         )}
       </div>
