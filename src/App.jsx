@@ -913,18 +913,22 @@ function FeatureRequests() {
       </div>
 
       {selectedRequest && (
-        <Modal title={selectedRequest.title} onClose={() => setSelectedRequest(null)} width={520}>
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ color: c.text, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{selectedRequest.description || "Keine Beschreibung."}</div>
+        <Modal title="Feature Request bearbeiten" onClose={() => setSelectedRequest(null)} width={520}>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Titel</label>
+            <input style={{ ...inputStyle }} value={selectedRequest.title || ""} onChange={(e) => setSelectedRequest({ ...selectedRequest, title: e.target.value })} />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Beschreibung</label>
+            <textarea style={{ ...inputStyle, minHeight: 80, resize: "vertical" }} value={selectedRequest.description || ""} onChange={(e) => setSelectedRequest({ ...selectedRequest, description: e.target.value })} />
           </div>
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 16, padding: "12px 0", borderTop: `1px solid ${c.border}`, borderBottom: `1px solid ${c.border}` }}>
             {selectedRequest.teams?.name && <div><span style={{ color: c.textDim, fontSize: 10 }}>Team</span><div style={{ color: c.text, fontSize: 12, fontWeight: 600 }}>{selectedRequest.teams.name}</div></div>}
             {selectedRequest.creatorName && <div><span style={{ color: c.textDim, fontSize: 10 }}>Von</span><div style={{ color: c.text, fontSize: 12, fontWeight: 600 }}>{selectedRequest.creatorName}</div></div>}
             {selectedRequest.creatorEmail && <div><span style={{ color: c.textDim, fontSize: 10 }}>E-Mail</span><div style={{ color: c.info, fontSize: 12 }}>{selectedRequest.creatorEmail}</div></div>}
             <div><span style={{ color: c.textDim, fontSize: 10 }}>Datum</span><div style={{ color: c.text, fontSize: 12 }}>{selectedRequest.created_at ? new Date(selectedRequest.created_at).toLocaleDateString("de-DE") : "—"}</div></div>
-            <div><span style={{ color: c.textDim, fontSize: 10 }}>Status</span><div style={{ color: c.text, fontSize: 12, fontWeight: 600 }}>{selectedRequest.status}</div></div>
           </div>
-          <div style={{ display: "flex", gap: 6 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
             {Object.entries(COLUMNS.reduce((a, col) => ({ ...a, [col.key]: col }), {})).map(([key, col]) => (
               <button key={key} onClick={() => { changeStatus(selectedRequest.id, key); setSelectedRequest({ ...selectedRequest, status: key }); }}
                 style={{ ...baseBtn, flex: 1, textAlign: "center", background: selectedRequest.status === key ? col.color + "22" : c.surface, color: selectedRequest.status === key ? col.color : c.textDim, border: `1px solid ${selectedRequest.status === key ? col.color + "44" : c.border}`, fontSize: 11 }}>
@@ -932,6 +936,11 @@ function FeatureRequests() {
               </button>
             ))}
           </div>
+          <button onClick={async () => {
+            await supabase.from("feature_requests").update({ title: selectedRequest.title, description: selectedRequest.description }).eq("id", selectedRequest.id);
+            setRequests(requests.map((r) => r.id === selectedRequest.id ? { ...r, title: selectedRequest.title, description: selectedRequest.description } : r));
+            setSelectedRequest(null);
+          }} style={{ ...baseBtn, background: c.accent, color: "#000", width: "100%" }}>Speichern</button>
         </Modal>
       )}
 
