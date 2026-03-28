@@ -2,6 +2,19 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 // ============================================
+// Mobile Detection Hook
+// ============================================
+function useMobile() {
+  const [mobile, setMobile] = useState(typeof window !== "undefined" ? window.innerWidth < 768 : false);
+  useEffect(() => {
+    const handler = () => setMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return mobile;
+}
+
+// ============================================
 // Supabase Setup
 // ============================================
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -89,26 +102,28 @@ function Badge({ label, color = c.accent }) {
 }
 
 function Modal({ title, onClose, children, width = 680 }) {
+  const mobile = useMobile();
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#000000cc", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+    <div style={{ position: "fixed", inset: 0, background: "#000000cc", zIndex: 1000, display: "flex", alignItems: mobile ? undefined : "center", justifyContent: mobile ? undefined : "center", padding: mobile ? 0 : 20 }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background: c.surface, border: `1px solid ${c.border}`, borderRadius: 12, width: "100%", maxWidth: width, maxHeight: "90vh", overflow: "auto" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 20px", borderBottom: `1px solid ${c.border}` }}>
-          <span style={{ color: c.text, fontWeight: 700, fontSize: 16 }}>{title}</span>
-          <button onClick={onClose} style={{ ...baseBtn, background: "transparent", color: c.textDim, padding: "2px 8px", fontSize: 18 }}>×</button>
+      <div style={{ background: c.surface, border: mobile ? "none" : `1px solid ${c.border}`, borderRadius: mobile ? 0 : 12, width: "100%", maxWidth: mobile ? "100%" : width, maxHeight: mobile ? "100%" : "90vh", height: mobile ? "100%" : undefined, overflow: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: mobile ? "14px 16px" : "18px 20px", borderBottom: `1px solid ${c.border}`, position: mobile ? "sticky" : undefined, top: mobile ? 0 : undefined, background: mobile ? c.surface : undefined, zIndex: mobile ? 10 : undefined }}>
+          <span style={{ color: c.text, fontWeight: 700, fontSize: mobile ? 15 : 16 }}>{title}</span>
+          <button onClick={onClose} style={{ ...baseBtn, background: "transparent", color: c.textDim, padding: mobile ? "4px 10px" : "2px 8px", fontSize: 18, minHeight: mobile ? 44 : undefined, minWidth: mobile ? 44 : undefined, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
         </div>
-        <div style={{ padding: 20 }}>{children}</div>
+        <div style={{ padding: mobile ? 16 : 20 }}>{children}</div>
       </div>
     </div>
   );
 }
 
 function Tabs({ tabs, active, onChange }) {
+  const mobile = useMobile();
   return (
-    <div style={{ display: "flex", gap: 2, borderBottom: `1px solid ${c.border}`, marginBottom: 20 }}>
+    <div style={{ display: "flex", gap: 2, borderBottom: `1px solid ${c.border}`, marginBottom: 20, overflowX: mobile ? "auto" : undefined, WebkitOverflowScrolling: "touch" }}>
       {tabs.map((t) => (
         <button key={t.key} onClick={() => onChange(t.key)}
-          style={{ ...baseBtn, background: "transparent", color: active === t.key ? c.accent : c.textDim, borderBottom: active === t.key ? `2px solid ${c.accent}` : "2px solid transparent", borderRadius: 0, padding: "8px 16px", fontSize: 13 }}>
+          style={{ ...baseBtn, background: "transparent", color: active === t.key ? c.accent : c.textDim, borderBottom: active === t.key ? `2px solid ${c.accent}` : "2px solid transparent", borderRadius: 0, padding: mobile ? "10px 12px" : "8px 16px", fontSize: mobile ? 12 : 13, whiteSpace: "nowrap", minHeight: mobile ? 44 : undefined }}>
           {t.label}
         </button>
       ))}
@@ -287,14 +302,15 @@ function CustomerDetailModal({ team, onClose, onUpdate }) {
   };
 
   const days = daysUntil(team.trial_ends_at);
+  const mobile = useMobile();
 
   return (
     <Modal title={`${team.name}`} onClose={onClose} width={760}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, flexWrap: mobile ? "wrap" : undefined }}>
         <Badge label={planLabel(team.plan)} color={planColor(team.plan)} />
         <Badge label={statusLabel(team.plan_status)} color={statusColor(team.plan_status)} />
         {days !== null && days <= 14 && <Badge label={`Trial: ${days}d`} color={days <= 3 ? c.danger : c.warn} />}
-        <span style={{ color: c.textDim, fontSize: 12, marginLeft: "auto" }}>Seit {fmtDate(team.created_at)}</span>
+        <span style={{ color: c.textDim, fontSize: 12, marginLeft: mobile ? 0 : "auto", width: mobile ? "100%" : undefined, marginTop: mobile ? 4 : 0 }}>Seit {fmtDate(team.created_at)}</span>
       </div>
 
       <Tabs
@@ -310,7 +326,7 @@ function CustomerDetailModal({ team, onClose, onUpdate }) {
       {tab === "overview" && (
         <div>
           {/* Stats row */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: mobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 10, marginBottom: 20 }}>
             {[
               { label: "Spieler", val: stats.players },
               { label: "Spiele", val: stats.matches },
@@ -318,14 +334,14 @@ function CustomerDetailModal({ team, onClose, onUpdate }) {
               { label: "Trainer", val: stats.members },
             ].map((s) => (
               <div key={s.label} style={{ background: c.bg, borderRadius: 8, padding: "12px 14px", border: `1px solid ${c.border}`, textAlign: "center" }}>
-                <div style={{ color: c.accent, fontSize: 22, fontWeight: 800 }}>{s.val}</div>
+                <div style={{ color: c.accent, fontSize: mobile ? 18 : 22, fontWeight: 800 }}>{s.val}</div>
                 <div style={{ color: c.textDim, fontSize: 11 }}>{s.label}</div>
               </div>
             ))}
           </div>
 
           {/* Plan & Status */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "1fr 1fr", gap: 14, marginBottom: 14 }}>
             <div>
               <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Plan</label>
               <select style={inputStyle} value={plan} onChange={(e) => setPlan(e.target.value)}>
@@ -346,15 +362,17 @@ function CustomerDetailModal({ team, onClose, onUpdate }) {
           {/* Trial end */}
           <div style={{ marginBottom: 14 }}>
             <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Trial Ende</label>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input style={{ ...inputStyle, flex: 1 }} type="date" value={trialEnds} onChange={(e) => setTrialEnds(e.target.value)} />
-              {[7, 14, 30].map((d) => (
-                <button key={d} onClick={() => extendTrial(d)} style={{ ...baseBtn, background: c.warnDim, color: c.warn, whiteSpace: "nowrap" }}>+{d}d</button>
-              ))}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: mobile ? "wrap" : undefined }}>
+              <input style={{ ...inputStyle, flex: 1, minHeight: mobile ? 44 : undefined, minWidth: mobile ? "100%" : undefined }} type="date" value={trialEnds} onChange={(e) => setTrialEnds(e.target.value)} />
+              <div style={{ display: "flex", gap: 8 }}>
+                {[7, 14, 30].map((d) => (
+                  <button key={d} onClick={() => extendTrial(d)} style={{ ...baseBtn, background: c.warnDim, color: c.warn, whiteSpace: "nowrap", minHeight: mobile ? 44 : undefined }}>+{d}d</button>
+                ))}
+              </div>
             </div>
           </div>
 
-          <button onClick={saveOverview} disabled={saving} style={{ ...baseBtn, background: c.accent, color: "#000", fontWeight: 700, padding: "9px 20px" }}>
+          <button onClick={saveOverview} disabled={saving} style={{ ...baseBtn, background: c.accent, color: "#000", fontWeight: 700, padding: mobile ? "12px 20px" : "9px 20px", width: mobile ? "100%" : undefined, minHeight: mobile ? 44 : undefined }}>
             {saving ? "Speichern..." : "Änderungen speichern"}
           </button>
         </div>
@@ -440,18 +458,20 @@ function Dashboard({ teams, onNavigate }) {
   const newest = [...teams].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 8);
   const expiring = teams.filter((t) => { const d = daysUntil(t.trial_ends_at); return d !== null && d <= 14 && d >= 0; }).sort((a, b) => new Date(a.trial_ends_at) - new Date(b.trial_ends_at));
 
+  const mobile = useMobile();
+
   return (
     <div>
-      <h2 style={{ color: c.text, fontSize: 20, fontWeight: 700, marginBottom: 20 }}>Dashboard</h2>
+      <h2 style={{ color: c.text, fontSize: mobile ? 18 : 20, fontWeight: 700, marginBottom: 20 }}>Dashboard</h2>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
         <StatCard label="Gesamt Kunden" value={total} sub="Teams & Clubs" />
         <StatCard label="Aktiv" value={active} sub="plan_status = active" color={c.accent} />
         <StatCard label="Trials" value={trials} sub="Noch nicht konvertiert" color={c.warn} />
         <StatCard label="Ablauf in 7 Tagen" value={expiringSoon} sub="Trial-Ablauf" color={expiringSoon > 0 ? c.danger : c.textDim} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "1fr 1fr", gap: 16 }}>
         <Card>
           <div style={{ color: c.textDim, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 14 }}>Neueste Anmeldungen</div>
           {newest.length === 0 && <div style={{ color: c.textDim, fontSize: 13 }}>Keine Daten.</div>}
@@ -561,37 +581,39 @@ function CreateTeamModal({ onClose, onCreate }) {
     onClose();
   };
 
+  const mobile = useMobile();
+
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#000a", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={onClose}>
-      <div style={{ background: c.surface, border: `1px solid ${c.border}`, borderRadius: 12, width: 440, padding: 28 }} onClick={(e) => e.stopPropagation()}>
+    <div style={{ position: "fixed", inset: 0, background: "#000a", display: "flex", alignItems: mobile ? undefined : "center", justifyContent: mobile ? undefined : "center", zIndex: 1000 }} onClick={onClose}>
+      <div style={{ background: c.surface, border: mobile ? "none" : `1px solid ${c.border}`, borderRadius: mobile ? 0 : 12, width: mobile ? "100%" : 440, height: mobile ? "100%" : undefined, padding: mobile ? 20 : 28, overflow: mobile ? "auto" : undefined }} onClick={(e) => e.stopPropagation()}>
         <h3 style={{ color: c.text, fontSize: 18, fontWeight: 700, marginBottom: 20 }}>Neues Team anlegen</h3>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
             <label style={{ color: c.textDim, fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Teamname *</label>
-            <input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} placeholder="z.B. U15 FC Beispiel" />
+            <input style={{ ...inputStyle, minHeight: mobile ? 44 : undefined }} value={name} onChange={(e) => setName(e.target.value)} placeholder="z.B. U15 FC Beispiel" />
           </div>
-          <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ display: "flex", gap: 10, flexDirection: mobile ? "column" : undefined }}>
             <div style={{ flex: 1 }}>
               <label style={{ color: c.textDim, fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Saison</label>
-              <input style={inputStyle} value={saison} onChange={(e) => setSaison(e.target.value)} placeholder="2025/2026" />
+              <input style={{ ...inputStyle, minHeight: mobile ? 44 : undefined }} value={saison} onChange={(e) => setSaison(e.target.value)} placeholder="2025/2026" />
             </div>
             <div style={{ flex: 1 }}>
               <label style={{ color: c.textDim, fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Liga</label>
-              <input style={inputStyle} value={liga} onChange={(e) => setLiga(e.target.value)} placeholder="z.B. Kreisliga A" />
+              <input style={{ ...inputStyle, minHeight: mobile ? 44 : undefined }} value={liga} onChange={(e) => setLiga(e.target.value)} placeholder="z.B. Kreisliga A" />
             </div>
           </div>
-          <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ display: "flex", gap: 10, flexDirection: mobile ? "column" : undefined }}>
             <div style={{ flex: 1 }}>
               <label style={{ color: c.textDim, fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Plan</label>
-              <select style={{ ...inputStyle, cursor: "pointer" }} value={plan} onChange={(e) => setPlan(e.target.value)}>
+              <select style={{ ...inputStyle, cursor: "pointer", minHeight: mobile ? 44 : undefined }} value={plan} onChange={(e) => setPlan(e.target.value)}>
                 <option value="team">Team</option>
                 <option value="club">Club</option>
               </select>
             </div>
             <div style={{ flex: 1 }}>
               <label style={{ color: c.textDim, fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Status</label>
-              <select style={{ ...inputStyle, cursor: "pointer" }} value={status} onChange={(e) => setStatus(e.target.value)}>
+              <select style={{ ...inputStyle, cursor: "pointer", minHeight: mobile ? 44 : undefined }} value={status} onChange={(e) => setStatus(e.target.value)}>
                 <option value="trial">Trial</option>
                 <option value="active">Aktiv</option>
               </select>
@@ -606,14 +628,14 @@ function CreateTeamModal({ onClose, onCreate }) {
 
           <div style={{ borderTop: `1px solid ${c.border}`, paddingTop: 14, marginTop: 4 }}>
             <span style={{ color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 8, display: "block" }}>Trainer-Zugang (optional)</span>
-            <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ display: "flex", gap: 10, flexDirection: mobile ? "column" : undefined }}>
               <div style={{ flex: 1 }}>
                 <label style={{ color: c.textDim, fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>E-Mail</label>
-                <input style={inputStyle} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="trainer@verein.de" />
+                <input style={{ ...inputStyle, minHeight: mobile ? 44 : undefined }} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="trainer@verein.de" />
               </div>
               <div style={{ flex: 1 }}>
                 <label style={{ color: c.textDim, fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Passwort</label>
-                <input style={inputStyle} type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Sicheres Passwort" />
+                <input style={{ ...inputStyle, minHeight: mobile ? 44 : undefined }} type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Sicheres Passwort" />
               </div>
             </div>
             <span style={{ color: c.textMuted, fontSize: 10, marginTop: 4, display: "block" }}>User wird sofort erstellt und dem Team zugewiesen. Zugangsdaten an den Kunden weiterleiten.</span>
@@ -682,35 +704,84 @@ function Customers({ teams, onUpdate, onCreateTeam, onDeleteTeam }) {
     window.open(json.link, "_blank");
   };
 
+  const mobile = useMobile();
+
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <h2 style={{ color: c.text, fontSize: 20, fontWeight: 700 }}>Kunden ({filtered.length})</h2>
-        <button onClick={() => setShowCreateModal(true)} style={{ ...baseBtn, background: c.accent, color: "#000", fontSize: 13 }}>+ Neues Team</button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: mobile ? "wrap" : undefined, gap: mobile ? 10 : undefined }}>
+        <h2 style={{ color: c.text, fontSize: mobile ? 18 : 20, fontWeight: 700 }}>Kunden ({filtered.length})</h2>
+        <button onClick={() => setShowCreateModal(true)} style={{ ...baseBtn, background: c.accent, color: "#000", fontSize: 13, minHeight: mobile ? 44 : undefined }}>+ Neues Team</button>
       </div>
 
       {/* Filters */}
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-        <input style={{ ...inputStyle, width: 220 }} placeholder="Name suchen..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        <div style={{ display: "flex", gap: 4 }}>
+        <input style={{ ...inputStyle, width: mobile ? "100%" : 220, minHeight: mobile ? 44 : undefined }} placeholder="Name suchen..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
           {["all", "team", "club"].map((p) => (
             <button key={p} onClick={() => setPlanFilter(p)}
-              style={{ ...baseBtn, background: planFilter === p ? c.accentDim : c.surface, color: planFilter === p ? c.accent : c.textDim, border: `1px solid ${planFilter === p ? c.accent + "44" : c.border}` }}>
+              style={{ ...baseBtn, background: planFilter === p ? c.accentDim : c.surface, color: planFilter === p ? c.accent : c.textDim, border: `1px solid ${planFilter === p ? c.accent + "44" : c.border}`, minHeight: mobile ? 44 : undefined }}>
               {p === "all" ? "Alle Pläne" : planLabel(p)}
             </button>
           ))}
         </div>
-        <div style={{ display: "flex", gap: 4 }}>
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
           {["all", "trial", "active", "suspended"].map((s) => (
             <button key={s} onClick={() => setStatusFilter(s)}
-              style={{ ...baseBtn, background: statusFilter === s ? statusColor(s) + "22" : c.surface, color: statusFilter === s ? statusColor(s) : c.textDim, border: `1px solid ${statusFilter === s ? statusColor(s) + "44" : c.border}` }}>
+              style={{ ...baseBtn, background: statusFilter === s ? statusColor(s) + "22" : c.surface, color: statusFilter === s ? statusColor(s) : c.textDim, border: `1px solid ${statusFilter === s ? statusColor(s) + "44" : c.border}`, minHeight: mobile ? 44 : undefined }}>
               {s === "all" ? "Alle Status" : statusLabel(s)}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table / Cards */}
+      {mobile ? (
+        /* Mobile: Card-based layout */
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {filtered.length === 0 && (
+            <Card><div style={{ color: c.textDim, textAlign: "center", fontSize: 14, padding: 12 }}>Keine Kunden gefunden.</div></Card>
+          )}
+          {filtered.map((t) => {
+            const days = daysUntil(t.trial_ends_at);
+            return (
+              <Card key={t.id} style={{ padding: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                  <div>
+                    <div style={{ color: c.text, fontWeight: 600, fontSize: 14 }}>{t.name}</div>
+                    <div style={{ color: c.textDim, fontSize: 12 }}>{t.saison || "—"}</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                    <Badge label={planLabel(t.plan)} color={planColor(t.plan)} />
+                    <Badge label={statusLabel(t.plan_status)} color={statusColor(t.plan_status)} />
+                  </div>
+                </div>
+                {(t.members || []).length > 0 && (
+                  <div style={{ marginBottom: 8 }}>
+                    {t.members.map((m) => (
+                      <div key={m.id} style={{ fontSize: 12, color: c.textDim, padding: "2px 0" }}>
+                        <span style={{ color: c.accent, marginRight: 4 }}>●</span>
+                        {m.vorname} {m.nachname} — <span style={{ color: c.info }}>{m.email}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 8, fontSize: 11, color: c.textDim, marginBottom: 10, flexWrap: "wrap" }}>
+                  <span>Erstellt: {fmtDate(t.created_at)}</span>
+                  {t.trial_ends_at && <span style={{ color: days !== null && days <= 7 ? c.danger : c.textDim, fontWeight: days !== null && days <= 7 ? 700 : 400 }}>Trial: {fmtDate(t.trial_ends_at)}{days !== null && days <= 14 ? ` (${days}d)` : ""}</span>}
+                  <button onClick={() => toggleInvoice(t)} style={{ ...baseBtn, background: t.invoice_created ? c.accentDim : c.surface, color: t.invoice_created ? c.accent : c.textMuted, border: `1px solid ${t.invoice_created ? c.accent + "44" : c.border}`, fontSize: 10, padding: "2px 8px" }}>
+                    {t.invoice_created ? "✓ Rechnung" : "— Rechnung"}
+                  </button>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button onClick={() => setSelectedTeam(t)} style={{ ...baseBtn, flex: 1, textAlign: "center", background: c.accentDim, color: c.accent, border: `1px solid ${c.accent}33`, minHeight: 44, fontSize: 13 }}>Details</button>
+                  <button onClick={() => impersonate(t.id)} style={{ ...baseBtn, flex: 1, textAlign: "center", background: c.infoDim, color: c.info, border: `1px solid ${c.info}33`, minHeight: 44, fontSize: 13 }}>Login</button>
+                  <button onClick={() => deleteTeam(t)} style={{ ...baseBtn, flex: 1, textAlign: "center", background: c.dangerDim, color: c.danger, border: `1px solid ${c.danger}33`, minHeight: 44, fontSize: 13 }}>Löschen</button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ display: "grid", gridTemplateColumns: "2fr 80px 100px 110px 110px 110px 260px", gap: 0 }}>
           {/* Header */}
@@ -783,6 +854,7 @@ function Customers({ teams, onUpdate, onCreateTeam, onDeleteTeam }) {
           })}
         </div>
       </Card>
+      )}
 
       {selectedTeam && (
         <CustomerDetailModal
@@ -869,15 +941,17 @@ function FeatureRequests() {
 
   if (loading) return <div style={{ color: c.textDim, padding: 40, textAlign: "center" }}>Lädt...</div>;
 
+  const mobile = useMobile();
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <h2 style={{ color: c.text, fontSize: 20, fontWeight: 700 }}>Feature Requests ({requests.length})</h2>
-        <button onClick={() => setShowNew(true)} style={{ ...baseBtn, background: c.accent, color: "#000" }}>+ Neue Anfrage</button>
+        <h2 style={{ color: c.text, fontSize: mobile ? 18 : 20, fontWeight: 700 }}>Feature Requests ({requests.length})</h2>
+        <button onClick={() => setShowNew(true)} style={{ ...baseBtn, background: c.accent, color: "#000", minHeight: mobile ? 44 : undefined }}>+ Neue Anfrage</button>
       </div>
 
       {/* Kanban */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, overflowX: "auto" }}>
+      <div style={{ display: mobile ? "flex" : "grid", gridTemplateColumns: mobile ? undefined : "repeat(5, 1fr)", flexDirection: mobile ? "column" : undefined, gap: 12, overflowX: mobile ? undefined : "auto" }}>
         {COLUMNS.map((col) => {
           const colItems = requests.filter((r) => r.status === col.key);
           return (
@@ -928,10 +1002,10 @@ function FeatureRequests() {
             {selectedRequest.creatorEmail && <div><span style={{ color: c.textDim, fontSize: 10 }}>E-Mail</span><div style={{ color: c.info, fontSize: 12 }}>{selectedRequest.creatorEmail}</div></div>}
             <div><span style={{ color: c.textDim, fontSize: 10 }}>Datum</span><div style={{ color: c.text, fontSize: 12 }}>{selectedRequest.created_at ? new Date(selectedRequest.created_at).toLocaleDateString("de-DE") : "—"}</div></div>
           </div>
-          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: mobile ? "wrap" : undefined }}>
             {Object.entries(COLUMNS.reduce((a, col) => ({ ...a, [col.key]: col }), {})).map(([key, col]) => (
               <button key={key} onClick={() => { changeStatus(selectedRequest.id, key); setSelectedRequest({ ...selectedRequest, status: key }); }}
-                style={{ ...baseBtn, flex: 1, textAlign: "center", background: selectedRequest.status === key ? col.color + "22" : c.surface, color: selectedRequest.status === key ? col.color : c.textDim, border: `1px solid ${selectedRequest.status === key ? col.color + "44" : c.border}`, fontSize: 11 }}>
+                style={{ ...baseBtn, flex: mobile ? undefined : 1, textAlign: "center", background: selectedRequest.status === key ? col.color + "22" : c.surface, color: selectedRequest.status === key ? col.color : c.textDim, border: `1px solid ${selectedRequest.status === key ? col.color + "44" : c.border}`, fontSize: 11, minHeight: mobile ? 44 : undefined, padding: mobile ? "8px 14px" : undefined }}>
                 {col.label}
               </button>
             ))}
@@ -955,10 +1029,10 @@ function FeatureRequests() {
               <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase" }}>Beschreibung</label>
               <textarea style={{ ...inputStyle, minHeight: 80, resize: "vertical" }} value={newForm.description} onChange={(e) => setNewForm({ ...newForm, description: e.target.value })} />
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "1fr 1fr", gap: 10 }}>
               <div>
                 <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase" }}>Priorität</label>
-                <select style={inputStyle} value={newForm.priority} onChange={(e) => setNewForm({ ...newForm, priority: e.target.value })}>
+                <select style={{ ...inputStyle, minHeight: mobile ? 44 : undefined }} value={newForm.priority} onChange={(e) => setNewForm({ ...newForm, priority: e.target.value })}>
                   <option value="low">Niedrig</option>
                   <option value="medium">Mittel</option>
                   <option value="high">Hoch</option>
@@ -966,7 +1040,7 @@ function FeatureRequests() {
               </div>
               <div>
                 <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase" }}>Status</label>
-                <select style={inputStyle} value={newForm.status} onChange={(e) => setNewForm({ ...newForm, status: e.target.value })}>
+                <select style={{ ...inputStyle, minHeight: mobile ? 44 : undefined }} value={newForm.status} onChange={(e) => setNewForm({ ...newForm, status: e.target.value })}>
                   <option value="open">Offen</option>
                   <option value="planned">Geplant</option>
                   <option value="in_progress">In Arbeit</option>
@@ -1019,10 +1093,12 @@ function Settings({ currentUser }) {
     setAdding(false);
   };
 
+  const mobile = useMobile();
+
   return (
     <div>
-      <h2 style={{ color: c.text, fontSize: 20, fontWeight: 700, marginBottom: 20 }}>Einstellungen</h2>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <h2 style={{ color: c.text, fontSize: mobile ? 18 : 20, fontWeight: 700, marginBottom: 20 }}>Einstellungen</h2>
+      <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "1fr 1fr", gap: 16 }}>
         <Card>
           <div style={{ color: c.textDim, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 14 }}>Mein Profil</div>
           <div style={{ color: c.text, fontSize: 14, fontWeight: 600 }}>{currentUser?.email}</div>
@@ -1177,14 +1253,16 @@ function BackupStatus() {
   const successCount = runs.filter((r) => r.conclusion === "success").length;
   const failCount = runs.filter((r) => r.conclusion === "failure").length;
 
+  const mobile = useMobile();
+
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <h2 style={{ color: c.text, fontSize: 20, fontWeight: 700 }}>Backup Status</h2>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={loadRuns} style={{ ...baseBtn, background: c.surface, color: c.textDim, border: `1px solid ${c.border}` }}>Aktualisieren</button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: mobile ? "flex-start" : "center", marginBottom: 20, flexDirection: mobile ? "column" : undefined, gap: mobile ? 12 : undefined }}>
+        <h2 style={{ color: c.text, fontSize: mobile ? 18 : 20, fontWeight: 700 }}>Backup Status</h2>
+        <div style={{ display: "flex", gap: 8, width: mobile ? "100%" : undefined }}>
+          <button onClick={loadRuns} style={{ ...baseBtn, background: c.surface, color: c.textDim, border: `1px solid ${c.border}`, minHeight: mobile ? 44 : undefined, flex: mobile ? 1 : undefined }}>Aktualisieren</button>
           <button onClick={triggerBackup} disabled={triggering}
-            style={{ ...baseBtn, background: triggering ? c.textDim : c.accent, color: "#000", opacity: triggering ? 0.6 : 1 }}>
+            style={{ ...baseBtn, background: triggering ? c.textDim : c.accent, color: "#000", opacity: triggering ? 0.6 : 1, minHeight: mobile ? 44 : undefined, flex: mobile ? 1 : undefined }}>
             {triggering ? "Wird gestartet..." : "Backup jetzt starten"}
           </button>
         </div>
@@ -1195,7 +1273,7 @@ function BackupStatus() {
       ) : (
         <>
           {/* Übersicht Cards */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: mobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 12, marginBottom: 12 }}>
             <StatCard label="Letztes Backup" value={lastSuccess ? fmtDateTime(lastSuccess.created_at) : "—"} sub={lastSuccess ? `Dauer: ${fmtDuration(lastSuccess.run_started_at, lastSuccess.updated_at)}` : "Noch kein Backup"} color={c.accent} />
             <StatCard label="Erfolgsrate" value={runs.length ? `${Math.round(successCount / runs.length * 100)}%` : "—"} sub={`${successCount} / ${runs.length} Runs`} color={failCount === 0 ? c.accent : c.warn} />
             <StatCard label="Fehlgeschlagen" value={failCount} sub={lastFailure ? `Letzter: ${fmtDateTime(lastFailure.created_at)}` : "Keine Fehler"} color={failCount > 0 ? c.danger : c.accent} />
@@ -1204,7 +1282,7 @@ function BackupStatus() {
 
           {/* Dateigrößen */}
           {backupStats && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
+            <div style={{ display: "grid", gridTemplateColumns: mobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
               <StatCard label="Datenbank" value={backupStats.db_size || "—"} sub={`${backupStats.db_lines || 0} SQL-Zeilen`} color={c.accent} />
               <StatCard label="Storage Files" value={backupStats.storage_size || "—"} sub={`${backupStats.storage_files || 0} Dateien`} color={c.info} />
               <StatCard label="Environment" value={backupStats.env_size || "—"} sub="GPG-verschlüsselt" color={c.warn} />
@@ -1215,7 +1293,7 @@ function BackupStatus() {
           {/* Backup-Inhalte */}
           <Card style={{ marginBottom: 16 }}>
             <div style={{ color: c.textDim, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 14 }}>Was wird gesichert</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "1fr 1fr 1fr", gap: 12 }}>
               <div style={{ background: c.bg, borderRadius: 8, padding: 12, border: `1px solid ${c.border}` }}>
                 <div style={{ color: c.accent, fontSize: 13, fontWeight: 600, marginBottom: 4 }}>PostgreSQL Datenbank</div>
                 <div style={{ color: c.textDim, fontSize: 11 }}>Kompletter pg_dump, komprimiert (.sql.gz)</div>
@@ -1242,15 +1320,29 @@ function BackupStatus() {
             {runs.length === 0 && <div style={{ padding: 24, color: c.textDim, textAlign: "center" }}>Noch keine Backup-Runs.</div>}
             {runs.map((r) => (
               <a key={r.id} href={r.html_url} target="_blank" rel="noreferrer"
-                style={{ display: "grid", gridTemplateColumns: "40px 1fr 120px 100px 80px", gap: 0, alignItems: "center", padding: "10px 16px", borderBottom: `1px solid ${c.border}22`, textDecoration: "none", cursor: "pointer" }}>
-                <span style={{ fontSize: 16 }}>{statusIcon(r.conclusion, r.status)}</span>
-                <div>
-                  <div style={{ color: c.text, fontSize: 12, fontWeight: 500 }}>{r.display_title || "Kicklog Backup"}</div>
-                  <div style={{ color: c.textDim, fontSize: 10 }}>{r.event === "schedule" ? "Automatisch (Zeitplan)" : r.event === "workflow_dispatch" ? "Manuell gestartet" : r.event}</div>
-                </div>
-                <span style={{ color: statusColor(r.conclusion, r.status), fontSize: 11, fontWeight: 600 }}>{statusLabel(r.conclusion, r.status)}</span>
-                <span style={{ color: c.textDim, fontSize: 11 }}>{fmtDateTime(r.created_at)}</span>
-                <span style={{ color: c.textDim, fontSize: 10, textAlign: "right" }}>{fmtDuration(r.run_started_at, r.updated_at)}</span>
+                style={mobile ? { display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 16px", borderBottom: `1px solid ${c.border}22`, textDecoration: "none", cursor: "pointer" } : { display: "grid", gridTemplateColumns: "40px 1fr 120px 100px 80px", gap: 0, alignItems: "center", padding: "10px 16px", borderBottom: `1px solid ${c.border}22`, textDecoration: "none", cursor: "pointer" }}>
+                <span style={{ fontSize: 16, flexShrink: 0 }}>{statusIcon(r.conclusion, r.status)}</span>
+                {mobile ? (
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ color: c.text, fontSize: 13, fontWeight: 500 }}>{r.display_title || "Kicklog Backup"}</div>
+                    <div style={{ color: c.textDim, fontSize: 11, marginTop: 2 }}>{r.event === "schedule" ? "Automatisch" : r.event === "workflow_dispatch" ? "Manuell" : r.event}</div>
+                    <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+                      <span style={{ color: statusColor(r.conclusion, r.status), fontSize: 11, fontWeight: 600 }}>{statusLabel(r.conclusion, r.status)}</span>
+                      <span style={{ color: c.textDim, fontSize: 11 }}>{fmtDateTime(r.created_at)}</span>
+                      <span style={{ color: c.textDim, fontSize: 10 }}>{fmtDuration(r.run_started_at, r.updated_at)}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <div style={{ color: c.text, fontSize: 12, fontWeight: 500 }}>{r.display_title || "Kicklog Backup"}</div>
+                      <div style={{ color: c.textDim, fontSize: 10 }}>{r.event === "schedule" ? "Automatisch (Zeitplan)" : r.event === "workflow_dispatch" ? "Manuell gestartet" : r.event}</div>
+                    </div>
+                    <span style={{ color: statusColor(r.conclusion, r.status), fontSize: 11, fontWeight: 600 }}>{statusLabel(r.conclusion, r.status)}</span>
+                    <span style={{ color: c.textDim, fontSize: 11 }}>{fmtDateTime(r.created_at)}</span>
+                    <span style={{ color: c.textDim, fontSize: 10, textAlign: "right" }}>{fmtDuration(r.run_started_at, r.updated_at)}</span>
+                  </>
+                )}
               </a>
             ))}
           </Card>
@@ -1332,15 +1424,17 @@ function SystemSettings({ currentUser }) {
     return `${d.getDate().toString().padStart(2, "0")}.${(d.getMonth() + 1).toString().padStart(2, "0")}.${d.getFullYear()} ${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
   };
 
+  const mobile = useMobile();
+
   if (loading) return <div style={{ color: c.textDim, textAlign: "center", padding: 40 }}>Laden...</div>;
 
   return (
     <div>
-      <h2 style={{ color: c.text, fontSize: 20, fontWeight: 700, marginBottom: 20 }}>System-Einstellungen</h2>
+      <h2 style={{ color: c.text, fontSize: mobile ? 18 : 20, fontWeight: 700, marginBottom: 20 }}>System-Einstellungen</h2>
 
       {/* Maintenance Mode */}
       <Card style={{ marginBottom: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: mobile ? "flex-start" : "center", marginBottom: 16, flexDirection: mobile ? "column" : undefined, gap: mobile ? 12 : undefined }}>
           <div>
             <div style={{ color: c.text, fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Maintenance-Modus</div>
             <div style={{ color: c.textDim, fontSize: 12 }}>Wenn aktiv: App zeigt Wartungsseite, kein Login möglich. Super-Admins haben weiterhin Zugriff.</div>
@@ -1351,6 +1445,9 @@ function SystemSettings({ currentUser }) {
               background: maintenanceActive ? c.danger : c.accent,
               color: maintenanceActive ? "#fff" : "#000",
               opacity: saving ? 0.6 : 1,
+              minHeight: mobile ? 44 : undefined,
+              width: mobile ? "100%" : undefined,
+              flexShrink: 0,
             }}>
             {saving ? "..." : maintenanceActive ? "Deaktivieren" : "Aktivieren"}
           </button>
@@ -1512,13 +1609,15 @@ function TrainingLibrary() {
 
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString("de-DE") : "—";
 
+  const mobile = useMobile();
+
   if (loading) return <div style={{ color: c.textDim, textAlign: "center", padding: 40 }}>Laden...</div>;
 
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <h2 style={{ color: c.text, fontSize: 20, fontWeight: 700 }}>Trainingsplan-Bibliothek ({plans.length})</h2>
-        <button onClick={() => setShowUpload(true)} style={{ ...baseBtn, background: c.accent, color: "#000" }}>+ Plan hinzufügen</button>
+        <h2 style={{ color: c.text, fontSize: mobile ? 18 : 20, fontWeight: 700 }}>Trainingsplan-Bibliothek ({plans.length})</h2>
+        <button onClick={() => setShowUpload(true)} style={{ ...baseBtn, background: c.accent, color: "#000", minHeight: mobile ? 44 : undefined }}>+ Plan hinzufügen</button>
       </div>
 
       {/* Matrix */}
@@ -1560,7 +1659,7 @@ function TrainingLibrary() {
       </Card>
 
       {/* Schwerpunkte + Altersgruppen in 2 Spalten */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
         {/* Schwerpunkte */}
         <Card>
           <div style={{ color: c.textDim, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 12 }}>Schwerpunkte ({topics.length})</div>
@@ -1624,21 +1723,50 @@ function TrainingLibrary() {
 
       {/* Filters */}
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-        <input style={{ ...inputStyle, width: 220 }} placeholder="Titel suchen..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        <select style={inputStyle} value={filterAge || ""} onChange={(e) => setFilterAge(e.target.value || null)}>
+        <input style={{ ...inputStyle, width: mobile ? "100%" : 220, minHeight: mobile ? 44 : undefined }} placeholder="Titel suchen..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        <select style={{ ...inputStyle, minHeight: mobile ? 44 : undefined, flex: mobile ? 1 : undefined }} value={filterAge || ""} onChange={(e) => setFilterAge(e.target.value || null)}>
           <option value="">Alle Altersgruppen</option>
           {ageGroups.map((a) => <option key={a.name} value={a.name}>{a.name}</option>)}
         </select>
-        <select style={inputStyle} value={filterTopic || ""} onChange={(e) => setFilterTopic(e.target.value || null)}>
+        <select style={{ ...inputStyle, minHeight: mobile ? 44 : undefined, flex: mobile ? 1 : undefined }} value={filterTopic || ""} onChange={(e) => setFilterTopic(e.target.value || null)}>
           <option value="">Alle Schwerpunkte</option>
           {activeTopics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
         {(filterAge || filterTopic || search) && (
-          <button onClick={() => { setFilterAge(null); setFilterTopic(null); setSearch(""); }} style={{ ...baseBtn, background: c.dangerDim, color: c.danger, border: `1px solid ${c.danger}33`, fontSize: 11 }}>✕ Filter zurücksetzen</button>
+          <button onClick={() => { setFilterAge(null); setFilterTopic(null); setSearch(""); }} style={{ ...baseBtn, background: c.dangerDim, color: c.danger, border: `1px solid ${c.danger}33`, fontSize: 11, minHeight: mobile ? 44 : undefined }}>✕ Filter zurücksetzen</button>
         )}
       </div>
 
-      {/* Plan Table */}
+      {/* Plan Table / Cards */}
+      {mobile ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {filtered.length === 0 && (
+            <Card><div style={{ color: c.textDim, textAlign: "center", fontSize: 14, padding: 12 }}>Keine Pläne gefunden.</div></Card>
+          )}
+          {filtered.map((p) => (
+            <Card key={p.id} style={{ padding: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
+                  <span style={{ color: c.info, fontSize: 14, flexShrink: 0 }}>📄</span>
+                  <span style={{ color: c.text, fontSize: 14, fontWeight: 600 }}>{p.title}</span>
+                </div>
+                <button onClick={() => togglePlan(p.id, p.is_active)}
+                  style={{ ...baseBtn, fontSize: 10, padding: "4px 10px", background: p.is_active ? c.accentDim : c.dangerDim, color: p.is_active ? c.accent : c.danger, border: `1px solid ${p.is_active ? c.accent : c.danger}33`, minHeight: 32, flexShrink: 0 }}>
+                  {p.is_active ? "✓ Aktiv" : "✕ Inaktiv"}
+                </button>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 12, color: c.textDim }}>
+                <span style={{ color: c.text }}>{p.age_group}</span>
+                <span style={{ color: c.accent }}>{p.topic_name}</span>
+                <span>{p.author_name}</span>
+                <span>{({"de":"🇩🇪","en":"🇬🇧","nl":"🇳🇱","tr":"🇹🇷","sq":"🇦🇱","hr":"🇭🇷","it":"🇮🇹","es":"🇪🇸","pt":"🇵🇹","fr":"🇫🇷","ja":"🇯🇵"})[p.language] || p.language || "🇩🇪"}</span>
+                <span>{p.usage_count}x genutzt</span>
+                <span>{fmtDate(p.created_at)}</span>
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : (
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ display: "grid", gridTemplateColumns: "2fr 80px 120px 120px 50px 70px 100px 70px", gap: 0 }}>
           {["Titel", "Alter", "Schwerpunkt", "Autor", "Lang", "Nutzungen", "Datum", "Aktiv"].map((h) => (
@@ -1669,6 +1797,7 @@ function TrainingLibrary() {
           ))}
         </div>
       </Card>
+      )}
 
       {/* Upload Modal */}
       {showUpload && (
@@ -1678,25 +1807,25 @@ function TrainingLibrary() {
               <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Titel *</label>
               <input style={inputStyle} value={uploadForm.title} onChange={(e) => setUploadForm({ ...uploadForm, title: e.target.value })} placeholder="z.B. Dribbling Parcours U12" />
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "1fr 1fr", gap: 12 }}>
               <div>
                 <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Altersgruppe *</label>
-                <select style={inputStyle} value={uploadForm.age_group} onChange={(e) => setUploadForm({ ...uploadForm, age_group: e.target.value })}>
+                <select style={{ ...inputStyle, minHeight: mobile ? 44 : undefined }} value={uploadForm.age_group} onChange={(e) => setUploadForm({ ...uploadForm, age_group: e.target.value })}>
                   {ageGroups.map((a) => <option key={a.name} value={a.name}>{a.name}</option>)}
                 </select>
               </div>
               <div>
                 <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Schwerpunkt *</label>
-                <select style={inputStyle} value={uploadForm.topic_id} onChange={(e) => setUploadForm({ ...uploadForm, topic_id: e.target.value })}>
+                <select style={{ ...inputStyle, minHeight: mobile ? 44 : undefined }} value={uploadForm.topic_id} onChange={(e) => setUploadForm({ ...uploadForm, topic_id: e.target.value })}>
                   <option value="">— wählen —</option>
                   {activeTopics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "1fr 1fr", gap: 12 }}>
               <div>
                 <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Autor *</label>
-                <input style={inputStyle} value={uploadForm.author_name} onChange={(e) => setUploadForm({ ...uploadForm, author_name: e.target.value })} placeholder="z.B. Dirk Otten" />
+                <input style={{ ...inputStyle, minHeight: mobile ? 44 : undefined }} value={uploadForm.author_name} onChange={(e) => setUploadForm({ ...uploadForm, author_name: e.target.value })} placeholder="z.B. Dirk Otten" />
               </div>
               <div>
                 <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Sprache *</label>
@@ -1793,9 +1922,11 @@ function ClubOnboardingWizard({ onClose, onSuccess }) {
 
   const progressStyle = { height: 4, background: c.border, borderRadius: 2, overflow: "hidden", marginTop: 14 };
 
+  const mobile = useMobile();
+
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#000000cc", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{ background: c.surface, border: `1px solid ${c.border}`, borderRadius: 14, width: "100%", maxWidth: 600, maxHeight: "92vh", overflow: "auto" }}>
+    <div style={{ position: "fixed", inset: 0, background: "#000000cc", zIndex: 2000, display: "flex", alignItems: mobile ? undefined : "center", justifyContent: mobile ? undefined : "center", padding: mobile ? 0 : 20 }}>
+      <div style={{ background: c.surface, border: mobile ? "none" : `1px solid ${c.border}`, borderRadius: mobile ? 0 : 14, width: "100%", maxWidth: mobile ? "100%" : 600, maxHeight: mobile ? "100%" : "92vh", height: mobile ? "100%" : undefined, overflow: "auto" }}>
         {/* Header */}
         <div style={{ padding: "20px 24px 16px", borderBottom: `1px solid ${c.border}` }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1853,7 +1984,7 @@ function ClubOnboardingWizard({ onClose, onSuccess }) {
               {teamsData.map((team, i) => (
                 <div key={i} style={{ background: c.bg, borderRadius: 8, padding: 16, marginBottom: 14, border: `1px solid ${c.border}` }}>
                   <div style={{ color: c.accent, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 }}>Team {i + 1}</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "1fr 1fr", gap: 10 }}>
                     {[
                       { label: "Name *", field: "name", placeholder: "1. Herren" },
                       { label: "Trainer Name", field: "trainer_name", placeholder: "Thomas Müller" },
@@ -1861,13 +1992,13 @@ function ClubOnboardingWizard({ onClose, onSuccess }) {
                     ].map(({ label, field, placeholder, type }) => (
                       <div key={field}>
                         <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4, textTransform: "uppercase" }}>{label}</label>
-                        <input style={inputStyle} type={type || "text"} placeholder={placeholder}
+                        <input style={{ ...inputStyle, minHeight: mobile ? 44 : undefined }} type={type || "text"} placeholder={placeholder}
                           value={team[field]} onChange={(e) => handleTeamField(i, field, e.target.value)} />
                       </div>
                     ))}
                     <div>
                       <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4, textTransform: "uppercase" }}>Liga</label>
-                      <select style={inputStyle} value={team.liga} onChange={(e) => handleTeamField(i, "liga", e.target.value)}>
+                      <select style={{ ...inputStyle, minHeight: mobile ? 44 : undefined }} value={team.liga} onChange={(e) => handleTeamField(i, "liga", e.target.value)}>
                         {LIGA_OPTIONS.map((l) => <option key={l} value={l}>{l}</option>)}
                       </select>
                     </div>
@@ -2005,12 +2136,14 @@ function ClubDetailModal({ club, onClose, onUpdate }) {
     setNewNote("");
   };
 
+  const mobile = useMobile();
+
   return (
     <Modal title={club.name} onClose={onClose} width={760}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, flexWrap: mobile ? "wrap" : undefined }}>
         <Badge label="Club" color={c.info} />
         <Badge label={statusLabel(club.plan_status)} color={statusColor(club.plan_status)} />
-        <span style={{ color: c.textDim, fontSize: 12, marginLeft: "auto" }}>Seit {fmtDate(club.created_at)}</span>
+        <span style={{ color: c.textDim, fontSize: 12, marginLeft: mobile ? 0 : "auto", width: mobile ? "100%" : undefined, marginTop: mobile ? 4 : 0 }}>Seit {fmtDate(club.created_at)}</span>
       </div>
       <Tabs tabs={[
         { key: "overview", label: "Übersicht" },
@@ -2020,7 +2153,7 @@ function ClubDetailModal({ club, onClose, onUpdate }) {
 
       {tab === "overview" && (
         <div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 20 }}>
             {[{ l: "Ansprechpartner", v: club.contact_name }, { l: "E-Mail", v: club.contact_email }, { l: "Telefon", v: club.contact_phone }, { l: "Anzahl Teams", v: club.num_teams }].map(({ l, v }) => (
               <div key={l} style={{ background: c.bg, borderRadius: 8, padding: "10px 14px", border: `1px solid ${c.border}` }}>
                 <div style={{ color: c.textDim, fontSize: 10, fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>{l}</div>
@@ -2028,16 +2161,16 @@ function ClubDetailModal({ club, onClose, onUpdate }) {
               </div>
             ))}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "1fr 1fr", gap: 14, marginBottom: 10 }}>
             <div>
               <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase" }}>Status</label>
-              <select style={inputStyle} value={status} onChange={(e) => setStatus(e.target.value)}>
+              <select style={{ ...inputStyle, minHeight: mobile ? 44 : undefined }} value={status} onChange={(e) => setStatus(e.target.value)}>
                 <option value="trial">Trial</option><option value="active">Aktiv</option><option value="suspended">Gesperrt</option>
               </select>
             </div>
             <div>
               <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase" }}>Trial Ende</label>
-              <input style={inputStyle} type="date" value={trialEnds} onChange={(e) => setTrialEnds(e.target.value)} />
+              <input style={{ ...inputStyle, minHeight: mobile ? 44 : undefined }} type="date" value={trialEnds} onChange={(e) => setTrialEnds(e.target.value)} />
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
@@ -2117,23 +2250,65 @@ function Clubs({ clubs, onUpdate, onNewClub }) {
     onUpdate({ ...club, plan_status: newStatus });
   };
 
+  const mobile = useMobile();
+
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <h2 style={{ color: c.text, fontSize: 20, fontWeight: 700 }}>Vereine / Clubs ({filtered.length})</h2>
-        <button onClick={onNewClub} style={{ ...baseBtn, background: c.accent, color: "#000", padding: "9px 18px" }}>+ Neuer Vereinskunde</button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: mobile ? "wrap" : undefined, gap: mobile ? 10 : undefined }}>
+        <h2 style={{ color: c.text, fontSize: mobile ? 18 : 20, fontWeight: 700 }}>Vereine / Clubs ({filtered.length})</h2>
+        <button onClick={onNewClub} style={{ ...baseBtn, background: c.accent, color: "#000", padding: "9px 18px", minHeight: mobile ? 44 : undefined }}>+ Neuer Vereinskunde</button>
       </div>
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-        <input style={{ ...inputStyle, width: 220 }} placeholder="Vereinsname suchen..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        <div style={{ display: "flex", gap: 4 }}>
+        <input style={{ ...inputStyle, width: mobile ? "100%" : 220, minHeight: mobile ? 44 : undefined }} placeholder="Vereinsname suchen..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
           {["all", "active", "trial", "suspended"].map((s) => (
             <button key={s} onClick={() => setStatusFilter(s)}
-              style={{ ...baseBtn, background: statusFilter === s ? statusColor(s) + "22" : c.surface, color: statusFilter === s ? statusColor(s) : c.textDim, border: `1px solid ${statusFilter === s ? statusColor(s) + "44" : c.border}` }}>
+              style={{ ...baseBtn, background: statusFilter === s ? statusColor(s) + "22" : c.surface, color: statusFilter === s ? statusColor(s) : c.textDim, border: `1px solid ${statusFilter === s ? statusColor(s) + "44" : c.border}`, minHeight: mobile ? 44 : undefined }}>
               {s === "all" ? "Alle" : statusLabel(s)}
             </button>
           ))}
         </div>
       </div>
+      {mobile ? (
+        /* Mobile: Card-based layout */
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {filtered.length === 0 && (
+            <Card>
+              <div style={{ color: c.textDim, textAlign: "center", fontSize: 14, padding: 12 }}>
+                Noch keine Vereine.{" "}
+                <span style={{ color: c.accent, cursor: "pointer" }} onClick={onNewClub}>Ersten Verein anlegen</span>
+              </div>
+            </Card>
+          )}
+          {filtered.map((cl) => {
+            const days = daysUntil(cl.trial_ends_at);
+            return (
+              <Card key={cl.id} style={{ padding: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                  <div>
+                    <div style={{ color: c.text, fontWeight: 600, fontSize: 14 }}>{cl.name}</div>
+                    <div style={{ color: c.textDim, fontSize: 12 }}>{cl.contact_name || "—"} · {cl.contact_email}</div>
+                  </div>
+                  <Badge label={statusLabel(cl.plan_status)} color={statusColor(cl.plan_status)} />
+                </div>
+                <div style={{ display: "flex", gap: 8, fontSize: 12, color: c.textDim, marginBottom: 10, flexWrap: "wrap" }}>
+                  <span>{cl.num_teams || "—"} Teams</span>
+                  {cl.trial_ends_at && <span style={{ color: days !== null && days <= 30 ? (days <= 7 ? c.danger : c.warn) : c.textDim }}>
+                    Trial: {fmtDate(cl.trial_ends_at)}{days !== null && days <= 30 ? ` (${days}d)` : ""}
+                  </span>}
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button onClick={() => setSelectedClub(cl)} style={{ ...baseBtn, flex: 1, textAlign: "center", background: c.accentDim, color: c.accent, border: `1px solid ${c.accent}33`, minHeight: 44, fontSize: 13 }}>Details</button>
+                  <button onClick={() => toggleStatus(cl)}
+                    style={{ ...baseBtn, flex: 1, textAlign: "center", background: cl.plan_status === "suspended" ? c.accentDim : c.dangerDim, color: cl.plan_status === "suspended" ? c.accent : c.danger, border: `1px solid ${cl.plan_status === "suspended" ? c.accent : c.danger}33`, minHeight: 44, fontSize: 13 }}>
+                    {cl.plan_status === "suspended" ? "Aktivieren" : "Sperren"}
+                  </button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 70px 100px 120px 160px", gap: 0 }}>
           {["Vereinsname", "Ansprechpartner", "Teams", "Status", "Trial Ende", "Aktionen"].map((h) => (
@@ -2181,6 +2356,7 @@ function Clubs({ clubs, onUpdate, onNewClub }) {
           })}
         </div>
       </Card>
+      )}
       {selectedClub && (
         <ClubDetailModal club={selectedClub} onClose={() => setSelectedClub(null)}
           onUpdate={(updated) => { onUpdate(updated); setSelectedClub(updated); }} />
@@ -2293,39 +2469,60 @@ export default function App() {
     { key: "library", label: "Trainingsplan-Bibliothek" },
   ];
 
+  const mobile = useMobile();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: c.bg, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
-      {/* Sidebar */}
-      <div style={{ width: 220, background: c.sidebar, borderRight: `1px solid ${c.border}`, display: "flex", flexDirection: "column", flexShrink: 0, position: "sticky", top: 0, height: "100vh" }}>
-        <div style={{ padding: "20px 16px 16px", borderBottom: `1px solid ${c.border}` }}>
-          <Logo size={22} />
-        </div>
-        <nav style={{ flex: 1, padding: "12px 8px", overflow: "auto" }}>
-          {/* CTA: Neuer Vereinskunde */}
-          <button onClick={() => setShowClubWizard(true)}
-            style={{ ...baseBtn, width: "100%", textAlign: "left", background: c.accent, color: "#000", padding: "9px 12px", marginBottom: 10, display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 12, borderRadius: 8 }}>
-            <span style={{ fontSize: 15 }}>＋</span> Neuer Vereinskunde
-          </button>
-          {NAV.map((n) => (
-            <button key={n.key} onClick={() => setPage(n.key)}
-              style={{ ...baseBtn, width: "100%", textAlign: "left", background: page === n.key ? c.accentDim : "transparent", color: page === n.key ? c.accent : c.textDim, padding: "9px 12px", marginBottom: 2, display: "flex", alignItems: "center", gap: 10, fontWeight: page === n.key ? 700 : 500, fontSize: 13, borderRadius: 8 }}>
-              {navIcon(n.key, page === n.key ? c.accent : c.textDim)}
-              {n.label}
-            </button>
-          ))}
-        </nav>
-        <div style={{ padding: "12px 8px", borderTop: `1px solid ${c.border}` }}>
-          <div style={{ color: c.textDim, fontSize: 11, padding: "4px 12px", marginBottom: 6 }}>
-            {profile?.vorname} {profile?.nachname}
+    <div style={{ display: "flex", flexDirection: mobile ? "column" : "row", minHeight: "100vh", background: c.bg, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+      {/* Desktop Sidebar */}
+      {!mobile && (
+        <div style={{ width: 220, background: c.sidebar, borderRight: `1px solid ${c.border}`, display: "flex", flexDirection: "column", flexShrink: 0, position: "sticky", top: 0, height: "100vh" }}>
+          <div style={{ padding: "20px 16px 16px", borderBottom: `1px solid ${c.border}` }}>
+            <Logo size={22} />
           </div>
-          <button onClick={handleLogout} style={{ ...baseBtn, width: "100%", textAlign: "left", background: "transparent", color: c.textDim, padding: "8px 12px", fontSize: 12 }}>
-            Ausloggen
-          </button>
+          <nav style={{ flex: 1, padding: "12px 8px", overflow: "auto" }}>
+            {/* CTA: Neuer Vereinskunde */}
+            <button onClick={() => setShowClubWizard(true)}
+              style={{ ...baseBtn, width: "100%", textAlign: "left", background: c.accent, color: "#000", padding: "9px 12px", marginBottom: 10, display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 12, borderRadius: 8 }}>
+              <span style={{ fontSize: 15 }}>＋</span> Neuer Vereinskunde
+            </button>
+            {NAV.map((n) => (
+              <button key={n.key} onClick={() => setPage(n.key)}
+                style={{ ...baseBtn, width: "100%", textAlign: "left", background: page === n.key ? c.accentDim : "transparent", color: page === n.key ? c.accent : c.textDim, padding: "9px 12px", marginBottom: 2, display: "flex", alignItems: "center", gap: 10, fontWeight: page === n.key ? 700 : 500, fontSize: 13, borderRadius: 8 }}>
+                {navIcon(n.key, page === n.key ? c.accent : c.textDim)}
+                {n.label}
+              </button>
+            ))}
+          </nav>
+          <div style={{ padding: "12px 8px", borderTop: `1px solid ${c.border}` }}>
+            <div style={{ color: c.textDim, fontSize: 11, padding: "4px 12px", marginBottom: 6 }}>
+              {profile?.vorname} {profile?.nachname}
+            </div>
+            <button onClick={handleLogout} style={{ ...baseBtn, width: "100%", textAlign: "left", background: "transparent", color: c.textDim, padding: "8px 12px", fontSize: 12 }}>
+              Ausloggen
+            </button>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Mobile Top Bar */}
+      {mobile && (
+        <div style={{ position: "sticky", top: 0, zIndex: 900, background: c.sidebar, borderBottom: `1px solid ${c.border}`, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Logo size={20} />
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button onClick={() => setShowClubWizard(true)}
+              style={{ ...baseBtn, background: c.accent, color: "#000", padding: "6px 10px", fontSize: 12, fontWeight: 700, borderRadius: 6, minHeight: 36 }}>
+              ＋
+            </button>
+            <button onClick={handleLogout} style={{ ...baseBtn, background: "transparent", color: c.textDim, padding: "6px 8px", fontSize: 11, minHeight: 36 }}>
+              Logout
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
-      <div style={{ flex: 1, padding: 28, overflowY: "auto" }}>
+      <div style={{ flex: 1, padding: mobile ? 12 : 28, overflowY: "auto", paddingBottom: mobile ? 80 : 28 }}>
         {dataLoading && page !== "requests" && page !== "settings" && page !== "clubs" && page !== "backup" && page !== "system" && page !== "library" ? (
           <div style={{ color: c.textDim, textAlign: "center", paddingTop: 60 }}>Daten werden geladen...</div>
         ) : (
@@ -2341,6 +2538,48 @@ export default function App() {
           </>
         )}
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      {mobile && (
+        <>
+          {/* More menu overlay */}
+          {mobileMenuOpen && (
+            <div style={{ position: "fixed", inset: 0, background: "#000000aa", zIndex: 950 }} onClick={() => setMobileMenuOpen(false)}>
+              <div style={{ position: "absolute", bottom: 64, left: 8, right: 8, background: c.surface, border: `1px solid ${c.border}`, borderRadius: 12, padding: 8, maxHeight: "60vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
+                {NAV.map((n) => (
+                  <button key={n.key} onClick={() => { setPage(n.key); setMobileMenuOpen(false); }}
+                    style={{ ...baseBtn, width: "100%", textAlign: "left", background: page === n.key ? c.accentDim : "transparent", color: page === n.key ? c.accent : c.textDim, padding: "12px 14px", marginBottom: 2, display: "flex", alignItems: "center", gap: 10, fontWeight: page === n.key ? 700 : 500, fontSize: 14, borderRadius: 8, minHeight: 44 }}>
+                    {navIcon(n.key, page === n.key ? c.accent : c.textDim)}
+                    {n.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Bottom tab bar */}
+          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 960, background: c.sidebar, borderTop: `1px solid ${c.border}`, display: "flex", justifyContent: "space-around", alignItems: "center", padding: "4px 0 env(safe-area-inset-bottom, 4px) 0" }}>
+            {[
+              { key: "dashboard", label: "Home" },
+              { key: "customers", label: "Kunden" },
+              { key: "clubs", label: "Vereine" },
+              { key: "requests", label: "Requests" },
+            ].map((n) => (
+              <button key={n.key} onClick={() => { setPage(n.key); setMobileMenuOpen(false); }}
+                style={{ ...baseBtn, background: "transparent", color: page === n.key ? c.accent : c.textDim, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "6px 4px", fontSize: 9, fontWeight: page === n.key ? 700 : 500, border: "none", minWidth: 52, minHeight: 48 }}>
+                <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22 }}>{navIcon(n.key, page === n.key ? c.accent : c.textDim)}</span>
+                {n.label}
+              </button>
+            ))}
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              style={{ ...baseBtn, background: "transparent", color: mobileMenuOpen ? c.accent : c.textDim, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "6px 4px", fontSize: 9, fontWeight: mobileMenuOpen ? 700 : 500, border: "none", minWidth: 52, minHeight: 48 }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={mobileMenuOpen ? c.accent : c.textDim} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/>
+              </svg>
+              Mehr
+            </button>
+          </div>
+        </>
+      )}
 
       {/* Club Onboarding Wizard */}
       {showClubWizard && (
