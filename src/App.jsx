@@ -1727,7 +1727,7 @@ function TrainingLibrary() {
             <div style={{ gridColumn: "1/-1", padding: 24, color: c.textDim, textAlign: "center", fontSize: 13 }}>Keine Pläne gefunden.</div>
           )}
           {filtered.map((p) => (
-            <React.Fragment key={p.id}>
+            <div key={p.id} style={{ display: "contents" }}>
               <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ color: c.info, fontSize: 14 }}>📄</span>
                 <span style={{ color: c.text, fontSize: 13, fontWeight: 500 }}>{p.title}</span>
@@ -1744,7 +1744,7 @@ function TrainingLibrary() {
                   {p.is_active ? "✓" : "✕"}
                 </button>
               </div>
-            </React.Fragment>
+            </div>
           ))}
         </div>
       </Card>
