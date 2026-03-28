@@ -710,9 +710,41 @@ function Customers({ teams, onUpdate, onCreateTeam, onDeleteTeam }) {
         </div>
       </div>
 
-      {/* Table */}
-      <Card style={{ padding: 0, overflowX: "auto" }}>
-        <div style={{ display: "grid", minWidth: window.innerWidth < 768 ? 900 : undefined, gridTemplateColumns: window.innerWidth < 768 ? "2fr 80px 100px 110px 110px 110px 260px" : "2fr 80px 100px 110px 110px 110px 260px", overflowX: window.innerWidth < 768 ? "auto" : undefined, gap: 0 }}>
+      {/* Mobile: Karten-Layout */}
+      {window.innerWidth < 768 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {filtered.length === 0 && <div style={{ color: c.textDim, textAlign: "center", padding: 24, fontSize: 13 }}>Keine Kunden gefunden.</div>}
+          {filtered.map((t) => (
+            <Card key={t.id} style={{ padding: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: c.text, fontWeight: 600, fontSize: 14 }}>{t.name}</div>
+                  <div style={{ color: c.textDim, fontSize: 11 }}>{t.saison || "—"}</div>
+                </div>
+                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                  <Badge label={planLabel(t.plan)} color={planColor(t.plan)} />
+                  <Badge label={statusLabel(t.plan_status)} color={statusColor(t.plan_status)} />
+                </div>
+              </div>
+              {(t.members || []).map((m) => (
+                <div key={m.id} style={{ fontSize: 11, color: c.textDim, marginBottom: 2 }}>
+                  <span style={{ color: c.accent, marginRight: 4 }}>●</span>{m.vorname} {m.nachname} — <span style={{ color: c.info }}>{m.email}</span>
+                </div>
+              ))}
+              <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                <button onClick={() => setSelectedTeam(t)} style={{ ...baseBtn, flex: 1, textAlign: "center", background: c.accentDim, color: c.accent, border: `1px solid ${c.accent}33`, fontSize: 12 }}>Details</button>
+                <button onClick={() => impersonate(t.id)} style={{ ...baseBtn, flex: 1, textAlign: "center", background: c.infoDim, color: c.info, border: `1px solid ${c.info}33`, fontSize: 12 }}>Login</button>
+                <button onClick={() => deleteTeam(t)} style={{ ...baseBtn, flex: 1, textAlign: "center", background: c.dangerDim, color: c.danger, border: `1px solid ${c.danger}33`, fontSize: 12 }}>Löschen</button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Desktop: Grid-Tabelle */}
+      {window.innerWidth >= 768 && (
+      <Card style={{ padding: 0, overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 80px 100px 110px 110px 110px 260px", gap: 0 }}>
           {/* Header */}
           {["Name", "Plan", "Status", "Erstellt", "Trial Ende", "Rechnung", "Aktionen"].map((h) => (
             <div key={h} style={{ color: c.textDim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, padding: "10px 16px", borderBottom: `1px solid ${c.border}` }}>{h}</div>
@@ -783,6 +815,7 @@ function Customers({ teams, onUpdate, onCreateTeam, onDeleteTeam }) {
           })}
         </div>
       </Card>
+      )}
 
       {selectedTeam && (
         <CustomerDetailModal
