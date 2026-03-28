@@ -2295,8 +2295,9 @@ export default function App() {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: c.bg, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+      <style>{`@media(max-width:767px){.admin-sidebar{display:none!important}.admin-content{padding:12px!important}}`}</style>
       {/* Sidebar */}
-      <div style={{ width: 220, background: c.sidebar, borderRight: `1px solid ${c.border}`, display: "flex", flexDirection: "column", flexShrink: 0, position: "sticky", top: 0, height: "100vh" }}>
+      <div className="admin-sidebar" style={{ width: 220, background: c.sidebar, borderRight: `1px solid ${c.border}`, display: "flex", flexDirection: "column", flexShrink: 0, position: "sticky", top: 0, height: "100vh" }}>
         <div style={{ padding: "20px 16px 16px", borderBottom: `1px solid ${c.border}` }}>
           <Logo size={22} />
         </div>
@@ -2325,7 +2326,7 @@ export default function App() {
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, padding: 28, overflowY: "auto" }}>
+      <div className="admin-content" style={{ flex: 1, padding: 28, overflowY: "auto" }}>
         {dataLoading && page !== "requests" && page !== "settings" && page !== "clubs" && page !== "backup" && page !== "system" && page !== "library" ? (
           <div style={{ color: c.textDim, textAlign: "center", paddingTop: 60 }}>Daten werden geladen...</div>
         ) : (
