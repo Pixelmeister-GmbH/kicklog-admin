@@ -444,14 +444,14 @@ function Dashboard({ teams, onNavigate }) {
     <div>
       <h2 style={{ color: c.text, fontSize: 20, fontWeight: 700, marginBottom: 20 }}>Dashboard</h2>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: window.innerWidth < 768 ? "1fr 1fr" : "repeat(4, 1fr)", gap: 12, marginBottom: window.innerWidth < 768 ? 12 : 24 }}>
         <StatCard label="Gesamt Kunden" value={total} sub="Teams & Clubs" />
         <StatCard label="Aktiv" value={active} sub="plan_status = active" color={c.accent} />
         <StatCard label="Trials" value={trials} sub="Noch nicht konvertiert" color={c.warn} />
         <StatCard label="Ablauf in 7 Tagen" value={expiringSoon} sub="Trial-Ablauf" color={expiringSoon > 0 ? c.danger : c.textDim} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: window.innerWidth < 768 ? "1fr" : "1fr 1fr", gap: window.innerWidth < 768 ? 10 : 16 }}>
         <Card>
           <div style={{ color: c.textDim, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 14 }}>Neueste Anmeldungen</div>
           {newest.length === 0 && <div style={{ color: c.textDim, fontSize: 13 }}>Keine Daten.</div>}
@@ -711,8 +711,8 @@ function Customers({ teams, onUpdate, onCreateTeam, onDeleteTeam }) {
       </div>
 
       {/* Table */}
-      <Card style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 80px 100px 110px 110px 110px 260px", gap: 0 }}>
+      <Card style={{ padding: 0, overflowX: "auto" }}>
+        <div style={{ display: "grid", minWidth: window.innerWidth < 768 ? 900 : undefined, gridTemplateColumns: window.innerWidth < 768 ? "2fr 80px 100px 110px 110px 110px 260px" : "2fr 80px 100px 110px 110px 110px 260px", overflowX: window.innerWidth < 768 ? "auto" : undefined, gap: 0 }}>
           {/* Header */}
           {["Name", "Plan", "Status", "Erstellt", "Trial Ende", "Rechnung", "Aktionen"].map((h) => (
             <div key={h} style={{ color: c.textDim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, padding: "10px 16px", borderBottom: `1px solid ${c.border}` }}>{h}</div>
@@ -877,7 +877,7 @@ function FeatureRequests() {
       </div>
 
       {/* Kanban */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, overflowX: "auto" }}>
+      <div style={{ display: "grid", gridTemplateColumns: window.innerWidth < 768 ? "repeat(5, 220px)" : "repeat(5, 1fr)", gap: 12, overflowX: "auto" }}>
         {COLUMNS.map((col) => {
           const colItems = requests.filter((r) => r.status === col.key);
           return (
@@ -1022,7 +1022,7 @@ function Settings({ currentUser }) {
   return (
     <div>
       <h2 style={{ color: c.text, fontSize: 20, fontWeight: 700, marginBottom: 20 }}>Einstellungen</h2>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: window.innerWidth < 768 ? "1fr" : "1fr 1fr", gap: window.innerWidth < 768 ? 10 : 16 }}>
         <Card>
           <div style={{ color: c.textDim, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 14 }}>Mein Profil</div>
           <div style={{ color: c.text, fontSize: 14, fontWeight: 600 }}>{currentUser?.email}</div>
@@ -1195,7 +1195,7 @@ function BackupStatus() {
       ) : (
         <>
           {/* Übersicht Cards */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: window.innerWidth < 768 ? "1fr 1fr" : "repeat(4, 1fr)", gap: 12, marginBottom: 12 }}>
             <StatCard label="Letztes Backup" value={lastSuccess ? fmtDateTime(lastSuccess.created_at) : "—"} sub={lastSuccess ? `Dauer: ${fmtDuration(lastSuccess.run_started_at, lastSuccess.updated_at)}` : "Noch kein Backup"} color={c.accent} />
             <StatCard label="Erfolgsrate" value={runs.length ? `${Math.round(successCount / runs.length * 100)}%` : "—"} sub={`${successCount} / ${runs.length} Runs`} color={failCount === 0 ? c.accent : c.warn} />
             <StatCard label="Fehlgeschlagen" value={failCount} sub={lastFailure ? `Letzter: ${fmtDateTime(lastFailure.created_at)}` : "Keine Fehler"} color={failCount > 0 ? c.danger : c.accent} />
@@ -1204,7 +1204,7 @@ function BackupStatus() {
 
           {/* Dateigrößen */}
           {backupStats && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
+            <div style={{ display: "grid", gridTemplateColumns: window.innerWidth < 768 ? "1fr 1fr" : "repeat(4, 1fr)", gap: 12, marginBottom: window.innerWidth < 768 ? 12 : 24 }}>
               <StatCard label="Datenbank" value={backupStats.db_size || "—"} sub={`${backupStats.db_lines || 0} SQL-Zeilen`} color={c.accent} />
               <StatCard label="Storage Files" value={backupStats.storage_size || "—"} sub={`${backupStats.storage_files || 0} Dateien`} color={c.info} />
               <StatCard label="Environment" value={backupStats.env_size || "—"} sub="GPG-verschlüsselt" color={c.warn} />
@@ -1215,7 +1215,7 @@ function BackupStatus() {
           {/* Backup-Inhalte */}
           <Card style={{ marginBottom: 16 }}>
             <div style={{ color: c.textDim, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 14 }}>Was wird gesichert</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: window.innerWidth < 768 ? "1fr" : "1fr 1fr 1fr", gap: 12 }}>
               <div style={{ background: c.bg, borderRadius: 8, padding: 12, border: `1px solid ${c.border}` }}>
                 <div style={{ color: c.accent, fontSize: 13, fontWeight: 600, marginBottom: 4 }}>PostgreSQL Datenbank</div>
                 <div style={{ color: c.textDim, fontSize: 11 }}>Kompletter pg_dump, komprimiert (.sql.gz)</div>
@@ -1560,7 +1560,7 @@ function TrainingLibrary() {
       </Card>
 
       {/* Schwerpunkte + Altersgruppen in 2 Spalten */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: window.innerWidth < 768 ? "1fr" : "1fr 1fr", gap: window.innerWidth < 768 ? 10 : 16, marginBottom: 16 }}>
         {/* Schwerpunkte */}
         <Card>
           <div style={{ color: c.textDim, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 12 }}>Schwerpunkte ({topics.length})</div>
@@ -2299,10 +2299,13 @@ export default function App() {
       <style>{`
         @media(max-width:767px){
           .admin-sidebar{display:none!important}
-          .admin-content{padding:56px 12px 72px!important;overflow-x:hidden!important}
+          .admin-content{padding:56px 10px 72px!important;overflow-x:hidden!important}
           .admin-topbar{display:flex!important}
           .admin-bottomnav{display:flex!important}
           .admin-moreoverlay{display:block!important}
+          .admin-content button{min-height:38px}
+          .admin-content input,.admin-content select,.admin-content textarea{min-height:38px;font-size:16px!important}
+          .admin-content h2{font-size:17px!important}
         }
         @media(min-width:768px){
           .admin-topbar,.admin-bottomnav,.admin-moreoverlay{display:none!important}
