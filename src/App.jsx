@@ -1212,13 +1212,13 @@ function BackupStatus() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 8 }}>
         <h2 style={{ color: c.text, fontSize: 20, fontWeight: 700 }}>Backup Status</h2>
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={loadRuns} style={{ ...baseBtn, background: c.surface, color: c.textDim, border: `1px solid ${c.border}` }}>Aktualisieren</button>
+          <button onClick={loadRuns} style={{ ...baseBtn, background: c.surface, color: c.textDim, border: `1px solid ${c.border}`, fontSize: window.innerWidth < 768 ? 11 : 12 }}>Aktualisieren</button>
           <button onClick={triggerBackup} disabled={triggering}
-            style={{ ...baseBtn, background: triggering ? c.textDim : c.accent, color: "#000", opacity: triggering ? 0.6 : 1 }}>
-            {triggering ? "Wird gestartet..." : "Backup jetzt starten"}
+            style={{ ...baseBtn, background: triggering ? c.textDim : c.accent, color: "#000", opacity: triggering ? 0.6 : 1, fontSize: window.innerWidth < 768 ? 11 : 12 }}>
+            {triggering ? "Startet..." : "Backup starten"}
           </button>
         </div>
       </div>
@@ -1275,7 +1275,24 @@ function BackupStatus() {
             {runs.length === 0 && <div style={{ padding: 24, color: c.textDim, textAlign: "center" }}>Noch keine Backup-Runs.</div>}
             {runs.map((r) => (
               <a key={r.id} href={r.html_url} target="_blank" rel="noreferrer"
-                style={{ display: "grid", gridTemplateColumns: "40px 1fr 120px 100px 80px", gap: 0, alignItems: "center", padding: "10px 16px", borderBottom: `1px solid ${c.border}22`, textDecoration: "none", cursor: "pointer" }}>
+                style={window.innerWidth < 768 ? {
+                  display: "flex", flexDirection: "column", gap: 4, padding: "10px 14px", borderBottom: `1px solid ${c.border}22`, textDecoration: "none"
+                } : {
+                  display: "grid", gridTemplateColumns: "40px 1fr 120px 100px 80px", gap: 0, alignItems: "center", padding: "10px 16px", borderBottom: `1px solid ${c.border}22`, textDecoration: "none", cursor: "pointer"
+                }}>
+                {window.innerWidth < 768 ? (<>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 16 }}>{statusIcon(r.conclusion, r.status)}</span>
+                      <span style={{ color: statusColor(r.conclusion, r.status), fontSize: 12, fontWeight: 600 }}>{statusLabel(r.conclusion, r.status)}</span>
+                    </div>
+                    <span style={{ color: c.textDim, fontSize: 10 }}>{fmtDuration(r.run_started_at, r.updated_at)}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ color: c.textDim, fontSize: 10 }}>{r.event === "schedule" ? "Automatisch" : "Manuell"}</span>
+                    <span style={{ color: c.textDim, fontSize: 10 }}>{fmtDateTime(r.created_at)}</span>
+                  </div>
+                </>) : (<>
                 <span style={{ fontSize: 16 }}>{statusIcon(r.conclusion, r.status)}</span>
                 <div>
                   <div style={{ color: c.text, fontSize: 12, fontWeight: 500 }}>{r.display_title || "Kicklog Backup"}</div>
@@ -1284,6 +1301,7 @@ function BackupStatus() {
                 <span style={{ color: statusColor(r.conclusion, r.status), fontSize: 11, fontWeight: 600 }}>{statusLabel(r.conclusion, r.status)}</span>
                 <span style={{ color: c.textDim, fontSize: 11 }}>{fmtDateTime(r.created_at)}</span>
                 <span style={{ color: c.textDim, fontSize: 10, textAlign: "right" }}>{fmtDuration(r.run_started_at, r.updated_at)}</span>
+                </>)}
               </a>
             ))}
           </Card>
