@@ -2,17 +2,9 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 // ============================================
-// Mobile Detection Hook
+// Mobile Detection — simple check, no hook needed
 // ============================================
-function useMobile() {
-  const [mobile, setMobile] = useState(typeof window !== "undefined" ? window.innerWidth < 768 : false);
-  useEffect(() => {
-    const handler = () => setMobile(window.innerWidth < 768);
-    window.addEventListener("resize", handler);
-    return () => window.removeEventListener("resize", handler);
-  }, []);
-  return mobile;
-}
+const useMobile = () => typeof window !== "undefined" && window.innerWidth < 768;
 
 // ============================================
 // Supabase Setup
