@@ -2201,6 +2201,7 @@ export default function App() {
   const [clubs, setClubs] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [showClubWizard, setShowClubWizard] = useState(false);
+  const [mobileMore, setMobileMore] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -2295,7 +2296,18 @@ export default function App() {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: c.bg, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
-      <style>{`@media(max-width:767px){.admin-sidebar{display:none!important}.admin-content{padding:12px!important}}`}</style>
+      <style>{`
+        @media(max-width:767px){
+          .admin-sidebar{display:none!important}
+          .admin-content{padding:56px 12px 72px!important;overflow-x:hidden!important}
+          .admin-topbar{display:flex!important}
+          .admin-bottomnav{display:flex!important}
+          .admin-moreoverlay{display:block!important}
+        }
+        @media(min-width:768px){
+          .admin-topbar,.admin-bottomnav,.admin-moreoverlay{display:none!important}
+        }
+      `}</style>
       {/* Sidebar */}
       <div className="admin-sidebar" style={{ width: 220, background: c.sidebar, borderRight: `1px solid ${c.border}`, display: "flex", flexDirection: "column", flexShrink: 0, position: "sticky", top: 0, height: "100vh" }}>
         <div style={{ padding: "20px 16px 16px", borderBottom: `1px solid ${c.border}` }}>
@@ -2341,6 +2353,50 @@ export default function App() {
             {page === "library" && <TrainingLibrary />}
           </>
         )}
+      </div>
+
+      {/* Mobile Top Bar */}
+      <div className="admin-topbar" style={{ display: "none", position: "fixed", top: 0, left: 0, right: 0, zIndex: 900, background: c.sidebar, borderBottom: `1px solid ${c.border}`, padding: "10px 16px", justifyContent: "space-between", alignItems: "center" }}>
+        <Logo size={18} />
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => setShowClubWizard(true)} style={{ ...baseBtn, background: c.accent, color: "#000", padding: "6px 10px", fontSize: 11, borderRadius: 6 }}>＋</button>
+          <button onClick={handleLogout} style={{ ...baseBtn, background: "transparent", color: c.textDim, padding: "6px", fontSize: 11 }}>Logout</button>
+        </div>
+      </div>
+
+      {/* Mobile More Overlay */}
+      {mobileMore && (
+        <div className="admin-moreoverlay" style={{ display: "none", position: "fixed", inset: 0, background: "#000a", zIndex: 950 }} onClick={() => setMobileMore(false)}>
+          <div style={{ position: "absolute", bottom: 64, left: 8, right: 8, background: c.surface, border: `1px solid ${c.border}`, borderRadius: 12, padding: 8 }} onClick={(e) => e.stopPropagation()}>
+            {NAV.map((n) => (
+              <button key={n.key} onClick={() => { setPage(n.key); setMobileMore(false); }}
+                style={{ ...baseBtn, width: "100%", textAlign: "left", background: page === n.key ? c.accentDim : "transparent", color: page === n.key ? c.accent : c.textDim, padding: "12px 14px", marginBottom: 2, display: "flex", alignItems: "center", gap: 10, fontWeight: page === n.key ? 700 : 500, fontSize: 14, borderRadius: 8 }}>
+                {navIcon(n.key, page === n.key ? c.accent : c.textDim)}
+                {n.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Bottom Nav */}
+      <div className="admin-bottomnav" style={{ display: "none", position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 900, background: c.sidebar, borderTop: `1px solid ${c.border}`, justifyContent: "space-around", padding: "4px 0", paddingBottom: "max(4px, env(safe-area-inset-bottom))" }}>
+        {[
+          { key: "dashboard", label: "Home" },
+          { key: "customers", label: "Teams" },
+          { key: "requests", label: "Requests" },
+        ].map((n) => (
+          <button key={n.key} onClick={() => { setPage(n.key); setMobileMore(false); }}
+            style={{ ...baseBtn, background: "transparent", color: page === n.key ? c.accent : c.textDim, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "6px 4px", fontSize: 9, fontWeight: page === n.key ? 700 : 500, border: "none", minWidth: 52, minHeight: 48 }}>
+            {navIcon(n.key, page === n.key ? c.accent : c.textDim)}
+            {n.label}
+          </button>
+        ))}
+        <button onClick={() => setMobileMore(!mobileMore)}
+          style={{ ...baseBtn, background: "transparent", color: mobileMore ? c.accent : c.textDim, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "6px 4px", fontSize: 9, border: "none", minWidth: 52, minHeight: 48 }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={mobileMore ? c.accent : c.textDim} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+          Mehr
+        </button>
       </div>
 
       {/* Club Onboarding Wizard */}
