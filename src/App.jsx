@@ -1418,7 +1418,7 @@ function TrainingLibrary() {
   const [filterAge, setFilterAge] = useState(null);
   const [filterTopic, setFilterTopic] = useState(null);
   const [search, setSearch] = useState("");
-  const [uploadForm, setUploadForm] = useState({ title: "", age_group: "U12", topic_id: "", author_name: "", description: "" });
+  const [uploadForm, setUploadForm] = useState({ title: "", age_group: "U12", topic_id: "", author_name: "", description: "", language: "de" });
   const [uploadFile, setUploadFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [newTopic, setNewTopic] = useState({ name: "", sort_order: 0 });
@@ -1487,10 +1487,11 @@ function TrainingLibrary() {
         pdf_path: path,
         description: uploadForm.description.trim() || null,
         author_name: uploadForm.author_name.trim(),
+        language: uploadForm.language,
       });
       if (insertErr) throw insertErr;
       setShowUpload(false);
-      setUploadForm({ title: "", age_group: "U12", topic_id: "", author_name: "", description: "" });
+      setUploadForm({ title: "", age_group: "U12", topic_id: "", author_name: "", description: "", language: "de" });
       setUploadFile(null);
       loadAll();
     } catch (err) { alert("Fehler: " + err.message); }
@@ -1639,8 +1640,8 @@ function TrainingLibrary() {
 
       {/* Plan Table */}
       <Card style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 80px 120px 120px 70px 100px 70px", gap: 0 }}>
-          {["Titel", "Alter", "Schwerpunkt", "Autor", "Nutzungen", "Datum", "Aktiv"].map((h) => (
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 80px 120px 120px 50px 70px 100px 70px", gap: 0 }}>
+          {["Titel", "Alter", "Schwerpunkt", "Autor", "Lang", "Nutzungen", "Datum", "Aktiv"].map((h) => (
             <div key={h} style={{ color: c.textDim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, padding: "10px 12px", borderBottom: `1px solid ${c.border}` }}>{h}</div>
           ))}
           {filtered.length === 0 && (
@@ -1655,6 +1656,7 @@ function TrainingLibrary() {
               <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.text, fontSize: 12 }}>{p.age_group}</div>
               <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.accent, fontSize: 12 }}>{p.topic_name}</div>
               <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.textDim, fontSize: 12 }}>{p.author_name}</div>
+              <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.textDim, fontSize: 12, textAlign: "center" }}>{({"de":"🇩🇪","en":"🇬🇧","nl":"🇳🇱","tr":"🇹🇷","sq":"🇦🇱","hr":"🇭🇷","it":"🇮🇹","es":"🇪🇸","pt":"🇵🇹","fr":"🇫🇷","ja":"🇯🇵"})[p.language] || p.language || "🇩🇪"}</div>
               <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.textDim, fontSize: 12, textAlign: "center" }}>{p.usage_count}</div>
               <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.textDim, fontSize: 11 }}>{fmtDate(p.created_at)}</div>
               <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, display: "flex", alignItems: "center" }}>
@@ -1691,9 +1693,27 @@ function TrainingLibrary() {
                 </select>
               </div>
             </div>
-            <div>
-              <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Autor *</label>
-              <input style={inputStyle} value={uploadForm.author_name} onChange={(e) => setUploadForm({ ...uploadForm, author_name: e.target.value })} placeholder="z.B. Dirk Otten" />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Autor *</label>
+                <input style={inputStyle} value={uploadForm.author_name} onChange={(e) => setUploadForm({ ...uploadForm, author_name: e.target.value })} placeholder="z.B. Dirk Otten" />
+              </div>
+              <div>
+                <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Sprache *</label>
+                <select style={inputStyle} value={uploadForm.language} onChange={(e) => setUploadForm({ ...uploadForm, language: e.target.value })}>
+                  <option value="de">🇩🇪 Deutsch</option>
+                  <option value="en">🇬🇧 English</option>
+                  <option value="nl">🇳🇱 Nederlands</option>
+                  <option value="tr">🇹🇷 Türkçe</option>
+                  <option value="sq">🇦🇱 Shqip</option>
+                  <option value="hr">🇭🇷 Hrvatski</option>
+                  <option value="it">🇮🇹 Italiano</option>
+                  <option value="es">🇪🇸 Español</option>
+                  <option value="pt">🇵🇹 Português</option>
+                  <option value="fr">🇫🇷 Français</option>
+                  <option value="ja">🇯🇵 日本語</option>
+                </select>
+              </div>
             </div>
             <div>
               <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Beschreibung (optional)</label>
