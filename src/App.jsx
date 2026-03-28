@@ -910,7 +910,7 @@ function FeatureRequests() {
       </div>
 
       {/* Kanban */}
-      <div style={{ display: "grid", gridTemplateColumns: window.innerWidth < 768 ? "repeat(5, 220px)" : "repeat(5, 1fr)", gap: 12, overflowX: "auto" }}>
+      <div style={{ display: "grid", gridTemplateColumns: window.innerWidth < 768 ? "1fr" : "repeat(5, 1fr)", gap: 12, overflowX: window.innerWidth < 768 ? undefined : "auto" }}>
         {COLUMNS.map((col) => {
           const colItems = requests.filter((r) => r.status === col.key);
           return (
