@@ -1,9 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-// Mobile check — simple function, no hook/state needed
-const isMobile = () => window.innerWidth < 768;
-
 // ============================================
 // Supabase Setup
 // ============================================
@@ -2296,54 +2293,39 @@ export default function App() {
     { key: "library", label: "Trainingsplan-Bibliothek" },
   ];
 
-  const m = isMobile();
-  const [mobileNav, setMobileNav] = useState(false);
-
   return (
-    <div style={{ display: "flex", flexDirection: m ? "column" : "row", minHeight: "100vh", background: c.bg, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
-      {/* Desktop Sidebar */}
-      {!m && (
-        <div style={{ width: 220, background: c.sidebar, borderRight: `1px solid ${c.border}`, display: "flex", flexDirection: "column", flexShrink: 0, position: "sticky", top: 0, height: "100vh" }}>
-          <div style={{ padding: "20px 16px 16px", borderBottom: `1px solid ${c.border}` }}>
-            <Logo size={22} />
-          </div>
-          <nav style={{ flex: 1, padding: "12px 8px", overflow: "auto" }}>
-            <button onClick={() => setShowClubWizard(true)}
-              style={{ ...baseBtn, width: "100%", textAlign: "left", background: c.accent, color: "#000", padding: "9px 12px", marginBottom: 10, display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 12, borderRadius: 8 }}>
-              <span style={{ fontSize: 15 }}>＋</span> Neuer Vereinskunde
-            </button>
-            {NAV.map((n) => (
-              <button key={n.key} onClick={() => setPage(n.key)}
-                style={{ ...baseBtn, width: "100%", textAlign: "left", background: page === n.key ? c.accentDim : "transparent", color: page === n.key ? c.accent : c.textDim, padding: "9px 12px", marginBottom: 2, display: "flex", alignItems: "center", gap: 10, fontWeight: page === n.key ? 700 : 500, fontSize: 13, borderRadius: 8 }}>
-                {navIcon(n.key, page === n.key ? c.accent : c.textDim)}
-                {n.label}
-              </button>
-            ))}
-          </nav>
-          <div style={{ padding: "12px 8px", borderTop: `1px solid ${c.border}` }}>
-            <div style={{ color: c.textDim, fontSize: 11, padding: "4px 12px", marginBottom: 6 }}>
-              {profile?.vorname} {profile?.nachname}
-            </div>
-            <button onClick={handleLogout} style={{ ...baseBtn, width: "100%", textAlign: "left", background: "transparent", color: c.textDim, padding: "8px 12px", fontSize: 12 }}>
-              Ausloggen
-            </button>
-          </div>
+    <div style={{ display: "flex", minHeight: "100vh", background: c.bg, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+      {/* Sidebar */}
+      <div style={{ width: 220, background: c.sidebar, borderRight: `1px solid ${c.border}`, display: "flex", flexDirection: "column", flexShrink: 0, position: "sticky", top: 0, height: "100vh" }}>
+        <div style={{ padding: "20px 16px 16px", borderBottom: `1px solid ${c.border}` }}>
+          <Logo size={22} />
         </div>
-      )}
-
-      {/* Mobile Top Bar */}
-      {m && (
-        <div style={{ position: "sticky", top: 0, zIndex: 900, background: c.sidebar, borderBottom: `1px solid ${c.border}`, padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Logo size={18} />
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setShowClubWizard(true)} style={{ ...baseBtn, background: c.accent, color: "#000", padding: "6px 10px", fontSize: 11, borderRadius: 6 }}>＋</button>
-            <button onClick={handleLogout} style={{ ...baseBtn, background: "transparent", color: c.textDim, padding: "6px", fontSize: 11 }}>Logout</button>
+        <nav style={{ flex: 1, padding: "12px 8px", overflow: "auto" }}>
+          {/* CTA: Neuer Vereinskunde */}
+          <button onClick={() => setShowClubWizard(true)}
+            style={{ ...baseBtn, width: "100%", textAlign: "left", background: c.accent, color: "#000", padding: "9px 12px", marginBottom: 10, display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 12, borderRadius: 8 }}>
+            <span style={{ fontSize: 15 }}>＋</span> Neuer Vereinskunde
+          </button>
+          {NAV.map((n) => (
+            <button key={n.key} onClick={() => setPage(n.key)}
+              style={{ ...baseBtn, width: "100%", textAlign: "left", background: page === n.key ? c.accentDim : "transparent", color: page === n.key ? c.accent : c.textDim, padding: "9px 12px", marginBottom: 2, display: "flex", alignItems: "center", gap: 10, fontWeight: page === n.key ? 700 : 500, fontSize: 13, borderRadius: 8 }}>
+              {navIcon(n.key, page === n.key ? c.accent : c.textDim)}
+              {n.label}
+            </button>
+          ))}
+        </nav>
+        <div style={{ padding: "12px 8px", borderTop: `1px solid ${c.border}` }}>
+          <div style={{ color: c.textDim, fontSize: 11, padding: "4px 12px", marginBottom: 6 }}>
+            {profile?.vorname} {profile?.nachname}
           </div>
+          <button onClick={handleLogout} style={{ ...baseBtn, width: "100%", textAlign: "left", background: "transparent", color: c.textDim, padding: "8px 12px", fontSize: 12 }}>
+            Ausloggen
+          </button>
         </div>
-      )}
+      </div>
 
       {/* Content */}
-      <div style={{ flex: 1, padding: m ? 12 : 28, overflowY: "auto", paddingBottom: m ? 72 : 28 }}>
+      <div style={{ flex: 1, padding: 28, overflowY: "auto" }}>
         {dataLoading && page !== "requests" && page !== "settings" && page !== "clubs" && page !== "backup" && page !== "system" && page !== "library" ? (
           <div style={{ color: c.textDim, textAlign: "center", paddingTop: 60 }}>Daten werden geladen...</div>
         ) : (
@@ -2359,43 +2341,6 @@ export default function App() {
           </>
         )}
       </div>
-
-      {/* Mobile Bottom Nav */}
-      {m && (
-        <>
-          {mobileNav && (
-            <div style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 950 }} onClick={() => setMobileNav(false)}>
-              <div style={{ position: "absolute", bottom: 60, left: 8, right: 8, background: c.surface, border: `1px solid ${c.border}`, borderRadius: 12, padding: 8 }} onClick={(e) => e.stopPropagation()}>
-                {NAV.map((n) => (
-                  <button key={n.key} onClick={() => { setPage(n.key); setMobileNav(false); }}
-                    style={{ ...baseBtn, width: "100%", textAlign: "left", background: page === n.key ? c.accentDim : "transparent", color: page === n.key ? c.accent : c.textDim, padding: "12px 14px", marginBottom: 2, display: "flex", alignItems: "center", gap: 10, fontWeight: page === n.key ? 700 : 500, fontSize: 14, borderRadius: 8 }}>
-                    {navIcon(n.key, page === n.key ? c.accent : c.textDim)}
-                    {n.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 900, background: c.sidebar, borderTop: `1px solid ${c.border}`, display: "flex", justifyContent: "space-around", padding: "4px 0 env(safe-area-inset-bottom, 4px)" }}>
-            {[
-              { key: "dashboard", label: "Home" },
-              { key: "customers", label: "Teams" },
-              { key: "requests", label: "Requests" },
-            ].map((n) => (
-              <button key={n.key} onClick={() => setPage(n.key)}
-                style={{ ...baseBtn, background: "transparent", color: page === n.key ? c.accent : c.textDim, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "6px 4px", fontSize: 9, fontWeight: page === n.key ? 700 : 500, border: "none", minWidth: 52, minHeight: 48 }}>
-                {navIcon(n.key, page === n.key ? c.accent : c.textDim)}
-                {n.label}
-              </button>
-            ))}
-            <button onClick={() => setMobileNav(!mobileNav)}
-              style={{ ...baseBtn, background: "transparent", color: mobileNav ? c.accent : c.textDim, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "6px 4px", fontSize: 9, fontWeight: 500, border: "none", minWidth: 52, minHeight: 48 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={mobileNav ? c.accent : c.textDim} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
-              Mehr
-            </button>
-          </div>
-        </>
-      )}
 
       {/* Club Onboarding Wizard */}
       {showClubWizard && (
