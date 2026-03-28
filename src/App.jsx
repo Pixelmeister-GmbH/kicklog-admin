@@ -1675,7 +1675,7 @@ function TrainingLibrary() {
 
       {/* Filters */}
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-        <input style={{ ...inputStyle, width: 220 }} placeholder="Titel suchen..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input style={{ ...inputStyle, width: window.innerWidth < 768 ? "100%" : 220 }} placeholder="Titel suchen..." value={search} onChange={(e) => setSearch(e.target.value)} />
         <select style={inputStyle} value={filterAge || ""} onChange={(e) => setFilterAge(e.target.value || null)}>
           <option value="">Alle Altersgruppen</option>
           {ageGroups.map((a) => <option key={a.name} value={a.name}>{a.name}</option>)}
@@ -1689,7 +1689,35 @@ function TrainingLibrary() {
         )}
       </div>
 
-      {/* Plan Table */}
+      {/* Plan Table — Desktop: Grid, Mobile: Cards */}
+      {window.innerWidth < 768 ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {filtered.length === 0 && <div style={{ color: c.textDim, textAlign: "center", padding: 24, fontSize: 13 }}>Keine Pläne gefunden.</div>}
+          {filtered.map((p) => {
+            const flag = ({"de":"🇩🇪","en":"🇬🇧","nl":"🇳🇱","tr":"🇹🇷","sq":"🇦🇱","hr":"🇭🇷","it":"🇮🇹","es":"🇪🇸","pt":"🇵🇹","fr":"🇫🇷","ja":"🇯🇵"})[p.language] || "🇩🇪";
+            return (
+              <Card key={p.id} style={{ padding: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ color: c.text, fontWeight: 600, fontSize: 14 }}>📄 {p.title}</div>
+                    <div style={{ color: c.textDim, fontSize: 11, marginTop: 2 }}>{p.author_name} · {fmtDate(p.created_at)}</div>
+                  </div>
+                  <button onClick={() => togglePlan(p.id, p.is_active)}
+                    style={{ ...baseBtn, fontSize: 10, padding: "2px 8px", background: p.is_active ? c.accentDim : c.dangerDim, color: p.is_active ? c.accent : c.danger, border: `1px solid ${p.is_active ? c.accent : c.danger}33`, flexShrink: 0 }}>
+                    {p.is_active ? "Aktiv" : "Inaktiv"}
+                  </button>
+                </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: c.accent + "22", color: c.accent }}>{p.topic_name}</span>
+                  <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: c.info + "22", color: c.info }}>{p.age_group}</span>
+                  <span style={{ fontSize: 10 }}>{flag}</span>
+                  <span style={{ fontSize: 10, color: c.textDim }}>{p.usage_count}× genutzt</span>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ display: "grid", gridTemplateColumns: "2fr 80px 120px 120px 50px 70px 100px 70px", gap: 0 }}>
           {["Titel", "Alter", "Schwerpunkt", "Autor", "Lang", "Nutzungen", "Datum", "Aktiv"].map((h) => (
@@ -1720,6 +1748,7 @@ function TrainingLibrary() {
           ))}
         </div>
       </Card>
+      )}
 
       {/* Upload Modal */}
       {showUpload && (
