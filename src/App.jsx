@@ -1710,7 +1710,7 @@ function TrainingLibrary() {
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: c.accent + "22", color: c.accent }}>{p.topic_name}</span>
                   <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: c.info + "22", color: c.info }}>{p.age_group}</span>
-                  <span style={{ fontSize: 10 }}>{flag}</span>
+                  <span style={{ fontSize: 10 }}>{flag} {(p.language || "de").toUpperCase()}</span>
                   <span style={{ fontSize: 10, color: c.textDim }}>{p.usage_count}× genutzt</span>
                 </div>
               </Card>
@@ -1735,7 +1735,7 @@ function TrainingLibrary() {
               <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.text, fontSize: 12 }}>{p.age_group}</div>
               <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.accent, fontSize: 12 }}>{p.topic_name}</div>
               <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.textDim, fontSize: 12 }}>{p.author_name}</div>
-              <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.textDim, fontSize: 12, textAlign: "center" }}>{({"de":"🇩🇪","en":"🇬🇧","nl":"🇳🇱","tr":"🇹🇷","sq":"🇦🇱","hr":"🇭🇷","it":"🇮🇹","es":"🇪🇸","pt":"🇵🇹","fr":"🇫🇷","ja":"🇯🇵"})[p.language] || p.language || "🇩🇪"}</div>
+              <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.textDim, fontSize: 12, textAlign: "center" }}>{({"de":"🇩🇪","en":"🇬🇧","nl":"🇳🇱","tr":"🇹🇷","sq":"🇦🇱","hr":"🇭🇷","it":"🇮🇹","es":"🇪🇸","pt":"🇵🇹","fr":"🇫🇷","ja":"🇯🇵"})[p.language] || "🇩🇪"} {(p.language || "de").toUpperCase()}</div>
               <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.textDim, fontSize: 12, textAlign: "center" }}>{p.usage_count}</div>
               <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.textDim, fontSize: 11 }}>{fmtDate(p.created_at)}</div>
               <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, display: "flex", alignItems: "center" }}>
