@@ -1470,6 +1470,7 @@ function TrainingLibrary() {
   const [filterTopic, setFilterTopic] = useState(null);
   const [search, setSearch] = useState("");
   const [uploadForm, setUploadForm] = useState({ title: "", age_group: "U12", topic_id: "", author_name: "", description: "", language: "de" });
+  const [editingPlan, setEditingPlan] = useState(null);
   const [uploadFile, setUploadFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [newTopic, setNewTopic] = useState({ name: "", sort_order: 0 });
@@ -1516,6 +1517,29 @@ function TrainingLibrary() {
 
   const togglePlan = async (id, active) => {
     await supabase.from("training_plans").update({ is_active: !active }).eq("id", id);
+    loadAll();
+  };
+
+  const deletePlan = async (p) => {
+    if (!confirm(`"${p.title}" wirklich löschen? PDF wird ebenfalls gelöscht.`)) return;
+    if (p.pdf_path) await supabaseAdmin.storage.from("training-plans").remove([p.pdf_path]);
+    await supabase.from("training_session_plans").delete().eq("plan_id", p.id);
+    await supabase.from("training_plans").delete().eq("id", p.id);
+    loadAll();
+  };
+
+  const saveEditPlan = async () => {
+    if (!editingPlan) return;
+    await supabase.from("training_plans").update({
+      title: editingPlan.title,
+      author_name: editingPlan.author_name,
+      age_group: editingPlan.age_group,
+      topic_id: editingPlan.topic_id,
+      description: editingPlan.description,
+      language: editingPlan.language,
+      updated_at: new Date().toISOString(),
+    }).eq("id", editingPlan.id);
+    setEditingPlan(null);
     loadAll();
   };
 
@@ -1707,11 +1731,15 @@ function TrainingLibrary() {
                     {p.is_active ? "Aktiv" : "Inaktiv"}
                   </button>
                 </div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
                   <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: c.accent + "22", color: c.accent }}>{p.topic_name}</span>
                   <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: c.info + "22", color: c.info }}>{p.age_group}</span>
                   <span style={{ fontSize: 10 }}>{flag} {(p.language || "de").toUpperCase()}</span>
                   <span style={{ fontSize: 10, color: c.textDim }}>{p.usage_count}× genutzt</span>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button onClick={() => setEditingPlan({ ...p })} style={{ ...baseBtn, flex: 1, textAlign: "center", background: c.infoDim, color: c.info, border: `1px solid ${c.info}33`, fontSize: 11 }}>Bearbeiten</button>
+                  <button onClick={() => deletePlan(p)} style={{ ...baseBtn, flex: 1, textAlign: "center", background: c.dangerDim, color: c.danger, border: `1px solid ${c.danger}33`, fontSize: 11 }}>Löschen</button>
                 </div>
               </Card>
             );
@@ -1719,8 +1747,8 @@ function TrainingLibrary() {
         </div>
       ) : (
       <Card style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 80px 120px 120px 50px 70px 100px 70px", gap: 0 }}>
-          {["Titel", "Alter", "Schwerpunkt", "Autor", "Lang", "Nutzungen", "Datum", "Aktiv"].map((h) => (
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 70px 110px 110px 50px 60px 90px 130px", gap: 0 }}>
+          {["Titel", "Alter", "Schwerpunkt", "Autor", "Lang", "Genutzt", "Datum", "Aktionen"].map((h) => (
             <div key={h} style={{ color: c.textDim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, padding: "10px 12px", borderBottom: `1px solid ${c.border}` }}>{h}</div>
           ))}
           {filtered.length === 0 && (
@@ -1738,16 +1766,73 @@ function TrainingLibrary() {
               <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.textDim, fontSize: 12, textAlign: "center" }}>{({"de":"🇩🇪","en":"🇬🇧","nl":"🇳🇱","tr":"🇹🇷","sq":"🇦🇱","hr":"🇭🇷","it":"🇮🇹","es":"🇪🇸","pt":"🇵🇹","fr":"🇫🇷","ja":"🇯🇵"})[p.language] || "🇩🇪"} {(p.language || "de").toUpperCase()}</div>
               <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.textDim, fontSize: 12, textAlign: "center" }}>{p.usage_count}</div>
               <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.textDim, fontSize: 11 }}>{fmtDate(p.created_at)}</div>
-              <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, display: "flex", alignItems: "center" }}>
-                <button onClick={() => togglePlan(p.id, p.is_active)}
-                  style={{ ...baseBtn, fontSize: 10, padding: "2px 6px", background: p.is_active ? c.accentDim : c.dangerDim, color: p.is_active ? c.accent : c.danger, border: `1px solid ${p.is_active ? c.accent : c.danger}33` }}>
+              <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, display: "flex", alignItems: "center", gap: 4 }}>
+                <button onClick={() => togglePlan(p.id, p.is_active)} title={p.is_active ? "Deaktivieren" : "Aktivieren"}
+                  style={{ ...baseBtn, fontSize: 9, padding: "2px 5px", background: p.is_active ? c.accentDim : c.dangerDim, color: p.is_active ? c.accent : c.danger, border: `1px solid ${p.is_active ? c.accent : c.danger}33` }}>
                   {p.is_active ? "✓" : "✕"}
                 </button>
+                <button onClick={() => setEditingPlan({ ...p })} title="Bearbeiten"
+                  style={{ ...baseBtn, fontSize: 9, padding: "2px 5px", background: c.infoDim, color: c.info, border: `1px solid ${c.info}33` }}>✎</button>
+                <button onClick={() => deletePlan(p)} title="Löschen"
+                  style={{ ...baseBtn, fontSize: 9, padding: "2px 5px", background: c.dangerDim, color: c.danger, border: `1px solid ${c.danger}33` }}>🗑</button>
               </div>
             </div>
           ))}
         </div>
       </Card>
+      )}
+
+      {/* Edit Plan Modal */}
+      {editingPlan && (
+        <Modal title="Plan bearbeiten" onClose={() => setEditingPlan(null)} width={520}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div>
+              <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Titel</label>
+              <input style={inputStyle} value={editingPlan.title} onChange={(e) => setEditingPlan({ ...editingPlan, title: e.target.value })} />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Altersgruppe</label>
+                <select style={inputStyle} value={editingPlan.age_group} onChange={(e) => setEditingPlan({ ...editingPlan, age_group: e.target.value })}>
+                  {ageGroups.map((a) => <option key={a.name} value={a.name}>{a.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Schwerpunkt</label>
+                <select style={inputStyle} value={editingPlan.topic_id} onChange={(e) => setEditingPlan({ ...editingPlan, topic_id: e.target.value })}>
+                  {activeTopics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Autor</label>
+                <input style={inputStyle} value={editingPlan.author_name} onChange={(e) => setEditingPlan({ ...editingPlan, author_name: e.target.value })} />
+              </div>
+              <div>
+                <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Sprache</label>
+                <select style={inputStyle} value={editingPlan.language || "de"} onChange={(e) => setEditingPlan({ ...editingPlan, language: e.target.value })}>
+                  <option value="de">🇩🇪 Deutsch</option>
+                  <option value="en">🇬🇧 English</option>
+                  <option value="nl">🇳🇱 Nederlands</option>
+                  <option value="tr">🇹🇷 Türkçe</option>
+                  <option value="sq">🇦🇱 Shqip</option>
+                  <option value="hr">🇭🇷 Hrvatski</option>
+                  <option value="it">🇮🇹 Italiano</option>
+                  <option value="es">🇪🇸 Español</option>
+                  <option value="pt">🇵🇹 Português</option>
+                  <option value="fr">🇫🇷 Français</option>
+                  <option value="ja">🇯🇵 日本語</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Beschreibung</label>
+              <textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical" }} value={editingPlan.description || ""} onChange={(e) => setEditingPlan({ ...editingPlan, description: e.target.value })} />
+            </div>
+            <button onClick={saveEditPlan} style={{ ...baseBtn, background: c.accent, color: "#000", width: "100%" }}>Speichern</button>
+          </div>
+        </Modal>
       )}
 
       {/* Upload Modal */}
