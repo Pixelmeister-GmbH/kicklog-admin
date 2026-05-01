@@ -6,6 +6,12 @@ Alle Änderungen chronologisch, neueste zuerst.
 
 ## [Unreleased]
 
+### 2026-05-01 — Fix: „Neuer Super-Admin hinzufügen" Browser-Fehler
+
+- **Bug:** Browser-Fehler „Forbidden use of secret API key in browser" beim Klick auf „Hinzufügen" im Settings → Super-Admins-Block. Code rief `supabaseAdmin.auth.admin.listUsers()` direkt mit Service Role Key auf — von Supabase JS jetzt blockiert
+- **Fix:** `addAdmin` ruft jetzt die neue Edge Function `admin-add-superadmin` (im klicklog-Repo unter `supabase/functions/`). Caller-JWT + profiles.role-Check stellen sicher dass nur Super-Admins andere Super-Admins ernennen können. Service Role Key bleibt server-seitig
+- Andere Stellen im Admin-Panel (invoice_created-Update, training-plans Storage-Upload/Delete) verwenden weiterhin `supabaseAdmin` — falls Supabase JS die auch blockiert, müssen diese ebenfalls in Edge Functions migriert werden
+
 ### 2026-03-18 — Club Onboarding System + Security-Fix
 
 #### Security

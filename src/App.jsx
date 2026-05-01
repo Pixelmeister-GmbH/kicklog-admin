@@ -1041,14 +1041,28 @@ function Settings({ currentUser }) {
   const addAdmin = async () => {
     if (!newAdminEmail.trim()) return;
     setAdding(true); setMsg("");
-    const { data: { users }, error: listErr } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-    if (listErr) { setMsg("Fehler: " + listErr.message); setAdding(false); return; }
-    const found = users?.find((u) => u.email === newAdminEmail.trim());
-    if (!found) { setMsg("Nutzer mit dieser E-Mail nicht gefunden."); setAdding(false); return; }
-    await supabase.from("profiles").update({ role: "super_admin" }).eq("id", found.id);
-    setMsg("Admin hinzugefügt.");
-    setNewAdminEmail("");
-    loadAdmins();
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-add-superadmin`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: ANON_KEY,
+          Authorization: `Bearer ${session?.access_token || ANON_KEY}`,
+        },
+        body: JSON.stringify({ email: newAdminEmail.trim() }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setMsg("Fehler: " + (body.error || `HTTP ${res.status}`));
+      } else {
+        setMsg("Admin hinzugefügt.");
+        setNewAdminEmail("");
+        loadAdmins();
+      }
+    } catch (err) {
+      setMsg("Fehler: " + (err.message || "Netzwerk"));
+    }
     setAdding(false);
   };
 
