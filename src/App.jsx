@@ -5,16 +5,14 @@ import { createClient } from "@supabase/supabase-js";
 // Supabase Setup
 // ============================================
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SERVICE_ROLE_KEY = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-// Anon key is public — used only for auth (signIn/signOut/session)
+// Anon key is public — safe in the client. It only grants what RLS allows.
 const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3Y3ZpYnN5c25tY2lrdnlscmdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MDQ4NTAsImV4cCI6MjA4ODk4MDg1MH0.rUUH4_G8oV5CtyIKvihok9rTQcdcGBMpswy8TBugqZY";
 
-// Auth client — anon key for login/logout
+// EINZIGER Client — anon key + authentifizierte User-Session (RLS greift).
+// Privilegierte Admin-Ops laufen über Edge Functions ODER RLS-Policies, die auf
+// app_metadata.role = 'super_admin' im JWT prüfen. NIEMALS einen Service-Role-Key
+// im Client — der landet im Browser-Bundle und gibt Vollzugriff auf die ganze DB.
 const supabase = createClient(SUPABASE_URL, ANON_KEY);
-// Admin client — service role key for admin operations (bypasses RLS)
-const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
 
 // ============================================
 // Design System
@@ -662,7 +660,7 @@ function Customers({ teams, onUpdate, onCreateTeam, onDeleteTeam }) {
 
   const toggleInvoice = async (t) => {
     const newVal = !t.invoice_created;
-    await supabaseAdmin.from("teams").update({ invoice_created: newVal }).eq("id", t.id);
+    await supabase.from("teams").update({ invoice_created: newVal }).eq("id", t.id);
     onUpdate({ ...t, invoice_created: newVal });
   };
 
@@ -1536,7 +1534,7 @@ function TrainingLibrary() {
 
   const deletePlan = async (p) => {
     if (!confirm(`"${p.title}" wirklich löschen? PDF wird ebenfalls gelöscht.`)) return;
-    if (p.pdf_path) await supabaseAdmin.storage.from("training-plans").remove([p.pdf_path]);
+    if (p.pdf_path) await supabase.storage.from("training-plans").remove([p.pdf_path]);
     await supabase.from("training_session_plans").delete().eq("plan_id", p.id);
     await supabase.from("training_plans").delete().eq("id", p.id);
     loadAll();
@@ -1567,7 +1565,7 @@ function TrainingLibrary() {
     try {
       const topicName = topics.find((t) => t.id === uploadForm.topic_id)?.name || "other";
       const path = `${uploadForm.age_group}/${topicName}/${crypto.randomUUID()}.pdf`;
-      const { error: uploadErr } = await supabaseAdmin.storage.from("training-plans").upload(path, uploadFile, { contentType: "application/pdf" });
+      const { error: uploadErr } = await supabase.storage.from("training-plans").upload(path, uploadFile, { contentType: "application/pdf" });
       if (uploadErr) throw uploadErr;
       const { error: insertErr } = await supabase.from("training_plans").insert({
         title: uploadForm.title.trim(),
