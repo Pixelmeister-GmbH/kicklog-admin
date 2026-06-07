@@ -54,11 +54,15 @@ function Logo({ size = 24 }) {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
       <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
-        <circle cx="50" cy="50" r="48" stroke={c.accent} strokeWidth="4" fill="#141414" />
-        <polygon points="50,22 61,38 57,55 43,55 39,38" fill={c.accent} opacity="0.9" />
-        <polygon points="61,38 78,38 75,55 57,55" fill={c.accent} opacity="0.7" />
-        <polygon points="39,38 22,38 25,55 43,55" fill={c.accent} opacity="0.7" />
-        <polygon points="43,55 35,72 50,78 65,72 57,55" fill={c.accent} opacity="0.5" />
+        <rect x="10" y="12" width="9" height="80" fill={c.text} />
+        <rect x="19" y="12" width="9" height="9" fill={c.text} />
+        <rect x="19" y="83" width="9" height="9" fill={c.text} />
+        <rect x="81" y="12" width="9" height="80" fill={c.text} />
+        <rect x="72" y="12" width="9" height="9" fill={c.text} />
+        <rect x="72" y="83" width="9" height="9" fill={c.text} />
+        <rect x="31.5" y="62" width="9" height="30" fill={c.text} />
+        <rect x="45.5" y="6" width="9" height="86" fill="#00C853" />
+        <rect x="59.5" y="40" width="9" height="52" fill={c.text} />
       </svg>
       <span style={{ fontWeight: 800, fontSize: size * 0.75, letterSpacing: -0.5, color: c.text }}>
         Kicklog <span style={{ color: c.accent, fontSize: size * 0.55, fontWeight: 700 }}>ADMIN</span>
