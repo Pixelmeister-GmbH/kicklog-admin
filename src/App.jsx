@@ -2148,6 +2148,20 @@ function ClubDetailModal({ club, onClose, onUpdate }) {
   const [notes, setNotes] = useState([]);
   const [newNote, setNewNote] = useState("");
   const [profiles, setProfiles] = useState([]);
+  const [linkState, setLinkState] = useState(""); // "" | "sending" | "sent" | Fehlertext
+  const sendDirectorLink = async () => {
+    if (!club.contact_email) { setLinkState("Keine Kontakt-E-Mail hinterlegt."); return; }
+    setLinkState("sending");
+    try {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: ANON_KEY },
+        body: JSON.stringify({ email: club.contact_email, create_user: false, options: { email_redirect_to: "https://director.kicklog.de" } }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error_description || e.msg || `HTTP ${res.status}`); }
+      setLinkState("sent");
+    } catch (e) { setLinkState("Fehler: " + e.message); }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -2261,6 +2275,23 @@ function ClubDetailModal({ club, onClose, onUpdate }) {
 
       {tab === "accounts" && (
         <div>
+          <div style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 10, padding: 14, marginBottom: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ color: c.text, fontSize: 13, fontWeight: 700 }}>🔑 Vereinsadmin (Director-Zugang)</div>
+                <div style={{ color: c.textDim, fontSize: 12, marginTop: 3 }}>
+                  {club.contact_name || "—"} · {club.contact_email || "keine E-Mail"}
+                  {(() => { const ca = profiles.find((p) => p.role === "club_admin"); return ca?.last_seen ? ` · zuletzt aktiv ${fmtDateTime(ca.last_seen)}` : " · noch nie eingeloggt"; })()}
+                </div>
+              </div>
+              <button onClick={sendDirectorLink} disabled={linkState === "sending"}
+                style={{ background: c.info + "22", color: c.info, border: `1px solid ${c.info}44`, borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: linkState === "sending" ? 0.6 : 1 }}>
+                {linkState === "sending" ? "Sendet …" : "Magic Link senden (director.kicklog.de)"}
+              </button>
+            </div>
+            {linkState === "sent" && <div style={{ color: c.accent, fontSize: 12, marginTop: 8 }}>✓ Magic Link an {club.contact_email} versendet.</div>}
+            {linkState && linkState !== "sent" && linkState !== "sending" && <div style={{ color: "#ef4444", fontSize: 12, marginTop: 8 }}>{linkState}</div>}
+          </div>
           {profiles.length === 0 && <div style={{ color: c.textDim, fontSize: 13, textAlign: "center", padding: 24 }}>Keine Zugänge gefunden.</div>}
           {profiles.map((p) => (
             <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${c.border}22` }}>
