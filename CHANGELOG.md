@@ -1,6 +1,7 @@
 # Changelog — kicklog-admin
 ## 20.07.2026 (abends)
 
+- **Sync-Monitor: mySide-bewusst:** Die Heim/Auswärts-Warnung erscheint nur noch, wenn die Spiele KEINEN Sync-Seitenstempel tragen und der „Mein Team"-Name nicht exakt matcht — inklusive Vorschlag der vermutlichen fussball.de-Schreibweise.
 - **fussball.de Sync-Monitor:** Neue Seite in der Navigation — überwacht den nächtlichen Sync über alle Teams mit fussball.de-URL. Pro Team: Status-Ampel, Sync-Alter (Warnung >26 h, Problem >50 h/nie), Tabellen-/Spiele-Zähler, Adress-Abdeckung (📍) und Konfig-Checks (Staffel-URL, Team-URL, „Mein Team"-Name matcht exakt → Heim/Auswärts-Sicherheit). „Test-Sync"-Button stößt den Sync für ein einzelnes Team an und zeigt das Ergebnis inkl. Fehlertext.
 ## 20.07.2026
 

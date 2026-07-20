@@ -1163,11 +1163,19 @@ function FussballSyncMonitor() {
     if (!/\/staffel\/[A-Z0-9-]+/i.test(t.fussball_widget_url || "")) issues.push("Tabellen-URL ohne Staffel-ID (falsche URL hinterlegt?)");
     if (!t.fussball_team_url) issues.push("keine Team-URL → nur Spieltag statt Saisonplan");
     else if (!/team-id\/[A-Z0-9]+/i.test(t.fussball_team_url)) issues.push("Team-URL ohne team-id");
-    if (!t.fussball_my_team) issues.push("„Mein Team“-Name fehlt → Heim/Auswärts nicht zuordenbar");
-    else if (fixtures.length > 0) {
-      const me = t.fussball_my_team.trim().toLowerCase();
-      const exact = fixtures.some((f) => (f.home || "").trim().toLowerCase() === me || (f.away || "").trim().toLowerCase() === me);
-      if (!exact) issues.push("„Mein Team“ matcht keinen fussball.de-Namen exakt → Heim/Auswärts unsicher");
+    const sideStamped = fixtures.length > 0 && fixtures.every((f) => f.mySide === "home" || f.mySide === "away");
+    if (fixtures.length > 0 && !sideStamped) {
+      // Ohne Sync-Stempel hängt Heim/Auswärts am "Mein Team"-Namen
+      const me = (t.fussball_my_team || "").trim().toLowerCase();
+      const exact = me && fixtures.some((f) => (f.home || "").trim().toLowerCase() === me || (f.away || "").trim().toLowerCase() === me);
+      if (!exact) {
+        const freq = {};
+        fixtures.forEach((f) => [f.home, f.away].forEach((n) => { const k = (n || "").trim(); if (k) freq[k] = (freq[k] || 0) + 1; }));
+        const detected = Object.entries(freq).sort((a, b) => b[1] - a[1])[0]?.[0];
+        issues.push(`Heim/Auswärts unsicher — „Mein Team" auf fussball.de-Schreibweise stellen${detected ? ` (vermutlich: „${detected}")` : ""} oder Test-Sync ausführen`);
+      }
+    } else if (fixtures.length === 0 && !t.fussball_my_team) {
+      issues.push("„Mein Team“-Name fehlt (Fallback für Heim/Auswärts)");
     }
     if (tabelle.length === 0) issues.push("keine Tabelle");
     if (fixtures.length === 0) issues.push("keine Spiele (Saisonplan evtl. noch nicht freigegeben)");
