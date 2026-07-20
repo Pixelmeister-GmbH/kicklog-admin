@@ -1,4 +1,7 @@
 # Changelog — kicklog-admin
+## 20.07.2026 (abends)
+
+- **fussball.de Sync-Monitor:** Neue Seite in der Navigation — überwacht den nächtlichen Sync über alle Teams mit fussball.de-URL. Pro Team: Status-Ampel, Sync-Alter (Warnung >26 h, Problem >50 h/nie), Tabellen-/Spiele-Zähler, Adress-Abdeckung (📍) und Konfig-Checks (Staffel-URL, Team-URL, „Mein Team"-Name matcht exakt → Heim/Auswärts-Sicherheit). „Test-Sync"-Button stößt den Sync für ein einzelnes Team an und zeigt das Ergebnis inkl. Fehlertext.
 ## 20.07.2026
 
 - **Onboarding-Button = Kombi-Versand:** „📧 Willkommen + Magic Link senden" ruft die neue Edge Function `admin-clubadmin-welcome` auf — Willkommens-Mail (einmalig pro Club, personalisiert) + Magic Link in einem Klick, beide vom Absender „Kicklog <noreply@kicklog.de>". Statuszeile meldet, was rausging.

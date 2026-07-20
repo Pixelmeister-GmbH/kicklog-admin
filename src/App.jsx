@@ -1136,6 +1136,122 @@ function Settings({ currentUser }) {
 // ============================================
 // Backup Status
 // ============================================
+// ── fussball.de Sync-Monitor: Zustand des nächtlichen Syncs über ALLE Teams ──
+function FussballSyncMonitor() {
+  const [teams, setTeams] = useState(null);
+  const [testing, setTesting] = useState(null);   // team-id während Test-Sync
+  const [testResult, setTestResult] = useState({}); // team-id → Ergebnis-Text
+
+  const load = async () => {
+    const { data } = await supabase
+      .from("teams")
+      .select("id,name,fussball_widget_url,fussball_team_url,fussball_my_team,fussball_last_update,fussball_fixtures_json,fussball_tabelle_json")
+      .not("fussball_widget_url", "is", null)
+      .order("name");
+    setTeams(data || []);
+  };
+  useEffect(() => { load(); }, []);
+
+  const health = (t) => {
+    const issues = [];
+    const fixtures = Array.isArray(t.fussball_fixtures_json) ? t.fussball_fixtures_json : [];
+    const tabelle = Array.isArray(t.fussball_tabelle_json) ? t.fussball_tabelle_json : [];
+    const ageH = t.fussball_last_update ? (Date.now() - new Date(t.fussball_last_update).getTime()) / 3600000 : null;
+    if (ageH == null) issues.push("noch nie synchronisiert");
+    else if (ageH > 50) issues.push(`letzter Sync vor ${Math.round(ageH / 24)} Tagen`);
+    else if (ageH > 26) issues.push("nächtlicher Sync ausgelassen");
+    if (!/\/staffel\/[A-Z0-9-]+/i.test(t.fussball_widget_url || "")) issues.push("Tabellen-URL ohne Staffel-ID (falsche URL hinterlegt?)");
+    if (!t.fussball_team_url) issues.push("keine Team-URL → nur Spieltag statt Saisonplan");
+    else if (!/team-id\/[A-Z0-9]+/i.test(t.fussball_team_url)) issues.push("Team-URL ohne team-id");
+    if (!t.fussball_my_team) issues.push("„Mein Team“-Name fehlt → Heim/Auswärts nicht zuordenbar");
+    else if (fixtures.length > 0) {
+      const me = t.fussball_my_team.trim().toLowerCase();
+      const exact = fixtures.some((f) => (f.home || "").trim().toLowerCase() === me || (f.away || "").trim().toLowerCase() === me);
+      if (!exact) issues.push("„Mein Team“ matcht keinen fussball.de-Namen exakt → Heim/Auswärts unsicher");
+    }
+    if (tabelle.length === 0) issues.push("keine Tabelle");
+    if (fixtures.length === 0) issues.push("keine Spiele (Saisonplan evtl. noch nicht freigegeben)");
+    const withLoc = fixtures.filter((f) => f.location).length;
+    const status = issues.length === 0 ? "ok" : (ageH != null && ageH <= 26 && tabelle.length > 0) ? "warn" : "error";
+    return { issues, fixtures: fixtures.length, withLoc, tabelle: tabelle.length, ageH, status };
+  };
+
+  const testSync = async (teamId) => {
+    setTesting(teamId);
+    setTestResult((r) => ({ ...r, [teamId]: null }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/update-tabelle`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session?.access_token}`, apikey: ANON_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ team_id: teamId }),
+      });
+      const json = await res.json().catch(() => ({}));
+      const r0 = json?.results?.[0] || {};
+      setTestResult((r) => ({
+        ...r,
+        [teamId]: r0.error
+          ? `❌ ${r0.error}`
+          : `✓ Tabelle ${r0.rows ?? 0} Zeilen · ${r0.fixtures ?? 0} Spiele${r0.fixturesSample ? ` · ${(r0.fixturesSample || []).filter((f) => f.location).length} mit Adresse` : ""}`,
+      }));
+      await load();
+    } catch (e) {
+      setTestResult((r) => ({ ...r, [teamId]: "❌ " + e.message }));
+    } finally { setTesting(null); }
+  };
+
+  if (!teams) return <div style={{ color: c.textDim, padding: 24 }}>Lade…</div>;
+  const stats = teams.map((t) => ({ t, h: health(t) }));
+  const okCount = stats.filter((x) => x.h.status === "ok").length;
+  const errCount = stats.filter((x) => x.h.status === "error").length;
+  const badge = (status) => status === "ok"
+    ? { label: "OK", color: c.accent }
+    : status === "warn" ? { label: "Hinweis", color: "#f59e0b" } : { label: "Problem", color: "#ef4444" };
+  const fmtAge = (h) => h == null ? "nie" : h < 1 ? "vor <1 h" : h < 48 ? `vor ${Math.round(h)} h` : `vor ${Math.round(h / 24)} T`;
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <h2 style={{ color: c.text, fontSize: 20, fontWeight: 700 }}>fussball.de Sync-Monitor</h2>
+        <span style={{ color: c.textDim, fontSize: 12 }}>Nächtlicher Sync ~23 Uhr · {okCount}/{teams.length} OK{errCount ? ` · ${errCount} mit Problemen` : ""}</span>
+      </div>
+      {teams.length === 0 && <div style={{ color: c.textDim }}>Kein Team hat eine fussball.de-URL hinterlegt.</div>}
+      {stats.map(({ t, h }) => {
+        const b = badge(h.status);
+        return (
+          <div key={t.id} style={{ background: c.surface, border: `1px solid ${h.status === "error" ? "#ef444455" : c.border}`, borderRadius: 10, padding: 16, marginBottom: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <Badge label={b.label} color={b.color} />
+                <span style={{ color: c.text, fontWeight: 700, fontSize: 14 }}>{t.name}</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, color: c.textDim, fontSize: 12 }}>
+                <span>Sync {fmtAge(h.ageH)}</span>
+                <span>Tabelle {h.tabelle}</span>
+                <span>Spiele {h.fixtures}</span>
+                <span>📍 {h.withLoc}</span>
+                <button onClick={() => testSync(t.id)} disabled={testing === t.id}
+                  style={{ background: c.info + "22", color: c.info, border: `1px solid ${c.info}44`, borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: testing === t.id ? 0.6 : 1 }}>
+                  {testing === t.id ? "Testet…" : "Test-Sync"}
+                </button>
+              </div>
+            </div>
+            {h.issues.length > 0 && (
+              <ul style={{ margin: "10px 0 0", paddingLeft: 18, color: "#f59e0b", fontSize: 12 }}>
+                {h.issues.map((i, ix) => <li key={ix}>{i}</li>)}
+              </ul>
+            )}
+            {testResult[t.id] && <div style={{ marginTop: 8, fontSize: 12, color: testResult[t.id].startsWith("✓") ? c.accent : "#ef4444" }}>{testResult[t.id]}</div>}
+          </div>
+        );
+      })}
+      <p style={{ color: c.textDim, fontSize: 11, marginTop: 14 }}>
+        „OK" = Sync &lt; 26 h alt, Staffel + Team-URL + „Mein Team" korrekt, Tabelle und Spiele vorhanden. Adress-Abdeckung (📍) hängt davon ab, ob im fussball.de-Spiel eine Spielstätte eingestellt ist.
+      </p>
+    </div>
+  );
+}
+
 function BackupStatus() {
   const [runs, setRuns] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -2540,6 +2656,7 @@ export default function App() {
     { key: "requests", label: "Feature Requests" },
     { key: "settings", label: "Einstellungen" },
     { key: "backup", label: "Backup" },
+    { key: "fussball", label: "fussball.de Sync" },
     { key: "system", label: "System" },
     { key: "library", label: "Trainingsplan-Bibliothek" },
   ];
@@ -2592,7 +2709,7 @@ export default function App() {
 
       {/* Content */}
       <div className="admin-content" style={{ flex: 1, padding: 28, overflowY: "auto" }}>
-        {dataLoading && page !== "requests" && page !== "settings" && page !== "clubs" && page !== "backup" && page !== "system" && page !== "library" ? (
+        {dataLoading && page !== "requests" && page !== "settings" && page !== "clubs" && page !== "backup" && page !== "fussball" && page !== "system" && page !== "library" ? (
           <div style={{ color: c.textDim, textAlign: "center", paddingTop: 60 }}>Daten werden geladen...</div>
         ) : (
           <>
@@ -2602,6 +2719,7 @@ export default function App() {
             {page === "requests" && <FeatureRequests />}
             {page === "settings" && <Settings currentUser={session?.user} />}
             {page === "backup" && <BackupStatus />}
+            {page === "fussball" && <FussballSyncMonitor />}
             {page === "system" && <SystemSettings currentUser={session?.user} />}
             {page === "library" && <TrainingLibrary />}
           </>
