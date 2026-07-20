@@ -2143,6 +2143,8 @@ function ClubDetailModal({ club, onClose, onUpdate }) {
   const [tab, setTab] = useState("overview");
   const [status, setStatus] = useState(club.plan_status || "active");
   const [trialEnds, setTrialEnds] = useState(club.trial_ends_at ? club.trial_ends_at.substring(0, 10) : "");
+  const [contactName, setContactName] = useState(club.contact_name || "");
+  const [contactEmail, setContactEmail] = useState(club.contact_email || "");
   const [saving, setSaving] = useState(false);
   const [teams, setTeams] = useState([]);
   const [notes, setNotes] = useState([]);
@@ -2150,17 +2152,30 @@ function ClubDetailModal({ club, onClose, onUpdate }) {
   const [profiles, setProfiles] = useState([]);
   const [linkState, setLinkState] = useState(""); // "" | "sending" | "sent" | Fehlertext
   const sendDirectorLink = async () => {
-    if (!club.contact_email) { setLinkState("Keine Kontakt-E-Mail hinterlegt."); return; }
+    const email = contactEmail.trim();
+    if (!email) { setLinkState("Keine Kontakt-E-Mail hinterlegt."); return; }
     setLinkState("sending");
     try {
       const res = await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json", apikey: ANON_KEY },
-        body: JSON.stringify({ email: club.contact_email, create_user: false, options: { email_redirect_to: "https://director.kicklog.de" } }),
+        body: JSON.stringify({ email, create_user: false, options: { email_redirect_to: "https://director.kicklog.de" } }),
       });
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error_description || e.msg || `HTTP ${res.status}`); }
       setLinkState("sent");
     } catch (e) { setLinkState("Fehler: " + e.message); }
+  };
+  const impersonateClubAdmin = async () => {
+    setLinkState("");
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-impersonate`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ clubId: club.id }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.error) { setLinkState("Fehler: " + (json.error || res.statusText)); return; }
+    window.open(json.link, "_blank");
   };
 
   useEffect(() => {
@@ -2179,8 +2194,9 @@ function ClubDetailModal({ club, onClose, onUpdate }) {
 
   const save = async () => {
     setSaving(true);
-    await supabase.from("clubs").update({ plan_status: status, trial_ends_at: trialEnds || null }).eq("id", club.id);
-    onUpdate({ ...club, plan_status: status, trial_ends_at: trialEnds || null });
+    const body = { plan_status: status, trial_ends_at: trialEnds || null, contact_name: contactName.trim() || null, contact_email: contactEmail.trim() || null };
+    await supabase.from("clubs").update(body).eq("id", club.id);
+    onUpdate({ ...club, ...body });
     setSaving(false);
   };
 
@@ -2215,8 +2231,18 @@ function ClubDetailModal({ club, onClose, onUpdate }) {
 
       {tab === "overview" && (
         <div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
-            {[{ l: "Ansprechpartner", v: club.contact_name }, { l: "E-Mail", v: club.contact_email }, { l: "Telefon", v: club.contact_phone }, { l: "Anzahl Teams", v: club.num_teams }].map(({ l, v }) => (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+            <div>
+              <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase" }}>Ansprechpartner (Vorstand)</label>
+              <input style={inputStyle} value={contactName} onChange={(e) => setContactName(e.target.value)} />
+            </div>
+            <div>
+              <label style={{ display: "block", color: c.textDim, fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase" }}>E-Mail Ansprechpartner</label>
+              <input style={inputStyle} type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+            {[{ l: "Telefon", v: club.contact_phone }, { l: "Anzahl Teams", v: club.num_teams }].map(({ l, v }) => (
               <div key={l} style={{ background: c.bg, borderRadius: 8, padding: "10px 14px", border: `1px solid ${c.border}` }}>
                 <div style={{ color: c.textDim, fontSize: 10, fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>{l}</div>
                 <div style={{ color: c.text, fontSize: 13 }}>{v || "—"}</div>
@@ -2280,14 +2306,20 @@ function ClubDetailModal({ club, onClose, onUpdate }) {
               <div>
                 <div style={{ color: c.text, fontSize: 13, fontWeight: 700 }}>🔑 Vereinsadmin (Director-Zugang)</div>
                 <div style={{ color: c.textDim, fontSize: 12, marginTop: 3 }}>
-                  {club.contact_name || "—"} · {club.contact_email || "keine E-Mail"}
+                  {contactName || "—"} · {contactEmail || "keine E-Mail"}
                   {(() => { const ca = profiles.find((p) => p.role === "club_admin"); return ca?.last_seen ? ` · zuletzt aktiv ${fmtDateTime(ca.last_seen)}` : " · noch nie eingeloggt"; })()}
                 </div>
               </div>
-              <button onClick={sendDirectorLink} disabled={linkState === "sending"}
-                style={{ background: c.info + "22", color: c.info, border: `1px solid ${c.info}44`, borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: linkState === "sending" ? 0.6 : 1 }}>
-                {linkState === "sending" ? "Sendet …" : "Magic Link senden (director.kicklog.de)"}
-              </button>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button onClick={sendDirectorLink} disabled={linkState === "sending"}
+                  style={{ background: c.info + "22", color: c.info, border: `1px solid ${c.info}44`, borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: linkState === "sending" ? 0.6 : 1 }}>
+                  {linkState === "sending" ? "Sendet …" : "Magic Link senden (director.kicklog.de)"}
+                </button>
+                <button onClick={impersonateClubAdmin} title="Öffnet den Director als Vereinsadmin-Konto — ohne Mail-Versand"
+                  style={{ background: c.accent + "22", color: c.accent, border: `1px solid ${c.accent}44`, borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                  👁 Als Vereinsadmin öffnen
+                </button>
+              </div>
             </div>
             {linkState === "sent" && <div style={{ color: c.accent, fontSize: 12, marginTop: 8 }}>✓ Magic Link an {club.contact_email} versendet.</div>}
             {linkState && linkState !== "sent" && linkState !== "sending" && <div style={{ color: "#ef4444", fontSize: 12, marginTop: 8 }}>{linkState}</div>}

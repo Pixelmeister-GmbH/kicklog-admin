@@ -1,6 +1,7 @@
 # Changelog — kicklog-admin
 ## 20.07.2026
 
+- **Kontaktdaten editierbar + Impersonate:** Ansprechpartner (Vorstand) und E-Mail sind im Club-Detail → Übersicht jetzt Eingabefelder (speichert mit „Änderungen speichern"). Neuer Button „👁 Als Vereinsadmin öffnen" in der Vereinsadmin-Karte: öffnet director.kicklog.de direkt als das Vorstands-Konto (via admin-impersonate, ohne Mail-Versand) — für Test & Support.
 - **Vereinsadmin-Onboarding (Phase 3):** Neue Karte „Vereinsadmin (Director-Zugang)" im Club-Detail → Accounts: zeigt Ansprechpartner + letzten Login des club_admin und verschickt per Button einen Magic Link an die Kontakt-E-Mail (OTP, `create_user: false`, Redirect director.kicklog.de). Erst-/Wiedereinladung liegt damit vollständig beim Super-Admin.
 
 Alle Änderungen chronologisch, neueste zuerst.
