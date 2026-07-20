@@ -2151,18 +2151,23 @@ function ClubDetailModal({ club, onClose, onUpdate }) {
   const [newNote, setNewNote] = useState("");
   const [profiles, setProfiles] = useState([]);
   const [linkState, setLinkState] = useState(""); // "" | "sending" | "sent" | Fehlertext
+  // Ein Klick: Willkommens-Mail (nur beim ersten Mal) + Magic Link — beides via Edge Function,
+  // beide Mails vom selben Absender (Kicklog <noreply@kicklog.de>)
   const sendDirectorLink = async () => {
-    const email = contactEmail.trim();
-    if (!email) { setLinkState("Keine Kontakt-E-Mail hinterlegt."); return; }
+    if (!contactEmail.trim()) { setLinkState("Keine Kontakt-E-Mail hinterlegt."); return; }
     setLinkState("sending");
     try {
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-clubadmin-welcome`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", apikey: ANON_KEY },
-        body: JSON.stringify({ email, create_user: false, options: { email_redirect_to: "https://director.kicklog.de" } }),
+        headers: { Authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ clubId: club.id }),
       });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error_description || e.msg || `HTTP ${res.status}`); }
-      setLinkState("sent");
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.error) throw new Error(json.error || res.statusText);
+      setLinkState(json.welcome === "sent"
+        ? `✓ Willkommens-Mail + Magic Link an ${json.email} versendet.`
+        : `✓ Magic Link an ${json.email} versendet (Willkommens-Mail war schon raus).`);
     } catch (e) { setLinkState("Fehler: " + e.message); }
   };
   const impersonateClubAdmin = async () => {
@@ -2313,7 +2318,7 @@ function ClubDetailModal({ club, onClose, onUpdate }) {
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button onClick={sendDirectorLink} disabled={linkState === "sending"}
                   style={{ background: c.info + "22", color: c.info, border: `1px solid ${c.info}44`, borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: linkState === "sending" ? 0.6 : 1 }}>
-                  {linkState === "sending" ? "Sendet …" : "Magic Link senden (director.kicklog.de)"}
+                  {linkState === "sending" ? "Sendet …" : "📧 Willkommen + Magic Link senden"}
                 </button>
                 <button onClick={impersonateClubAdmin} title="Öffnet den Director als Vereinsadmin-Konto — ohne Mail-Versand"
                   style={{ background: c.accent + "22", color: c.accent, border: `1px solid ${c.accent}44`, borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
@@ -2321,8 +2326,9 @@ function ClubDetailModal({ club, onClose, onUpdate }) {
                 </button>
               </div>
             </div>
-            {linkState === "sent" && <div style={{ color: c.accent, fontSize: 12, marginTop: 8 }}>✓ Magic Link an {club.contact_email} versendet.</div>}
-            {linkState && linkState !== "sent" && linkState !== "sending" && <div style={{ color: "#ef4444", fontSize: 12, marginTop: 8 }}>{linkState}</div>}
+            {linkState && linkState !== "sending" && (
+              <div style={{ color: linkState.startsWith("✓") ? c.accent : "#ef4444", fontSize: 12, marginTop: 8 }}>{linkState}</div>
+            )}
           </div>
           {profiles.length === 0 && <div style={{ color: c.textDim, fontSize: 13, textAlign: "center", padding: 24 }}>Keine Zugänge gefunden.</div>}
           {profiles.map((p) => (
