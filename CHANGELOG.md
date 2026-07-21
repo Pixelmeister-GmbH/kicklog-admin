@@ -1,4 +1,8 @@
 # Changelog — kicklog-admin
+## 21.07.2026 — Mediathek
+
+- **Neue Seite „Mediathek":** Media-Library mit Ordnern für Neo + Niko. Privater Storage-Bucket `mediathek` (Migration `db/2026-07-21_mediathek_bucket.sql`, RLS nur `super_admin`). Ordner anlegen (Inline), Datei-Upload (multi, upsert), Bild-Thumbnails (signed URLs), Öffnen/Download (signed URL), Datei- + rekursives Ordner-Löschen, Breadcrumb-Navigation, Grid-Kacheln. Läuft über den authentifizierten Admin-Client (`supabase.storage`) — **kein Service-Role im Client** (neue Architektur-Regel). ⚠ Migration muss im SQL-Editor angewendet werden, sonst „Fehler beim Laden".
+
 ## 20.07.2026 (abends)
 
 - **Sync-Monitor: mySide-bewusst:** Die Heim/Auswärts-Warnung erscheint nur noch, wenn die Spiele KEINEN Sync-Seitenstempel tragen und der „Mein Team"-Name nicht exakt matcht — inklusive Vorschlag der vermutlichen fussball.de-Schreibweise.

@@ -2041,6 +2041,250 @@ function TrainingLibrary() {
 }
 
 // ============================================
+// Mediathek (Media Library)
+// ============================================
+const MEDIA_IMAGE_EXTS = ["jpg", "jpeg", "png", "gif", "webp", "svg"];
+const isImageFile = (name) => MEDIA_IMAGE_EXTS.includes((name.split(".").pop() || "").toLowerCase());
+const isPlaceholder = (name) => name === ".emptyFolderPlaceholder" || name === ".keep";
+
+const humanFileSize = (bytes) => {
+  if (bytes === null || bytes === undefined) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+};
+
+// Rekursiv alle Objektpfade unter einem Präfix sammeln (für Ordner-Löschung)
+async function collectMediaPaths(prefix) {
+  const { data, error } = await supabase.storage.from("mediathek").list(prefix, { limit: 1000 });
+  if (error) throw error;
+  let paths = [];
+  for (const entry of data || []) {
+    if (entry.id === null) {
+      const sub = await collectMediaPaths(prefix + entry.name + "/");
+      paths = paths.concat(sub);
+    } else {
+      paths.push(prefix + entry.name);
+    }
+  }
+  return paths;
+}
+
+function Mediathek() {
+  const [path, setPath] = useState("");
+  const [entries, setEntries] = useState([]);
+  const [thumbs, setThumbs] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [showNewFolder, setShowNewFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+
+  useEffect(() => {
+    load("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const load = async (p) => {
+    setLoading(true);
+    setError("");
+    try {
+      const { data, error: listErr } = await supabase.storage.from("mediathek").list(p, { limit: 200, sortBy: { column: "name", order: "asc" } });
+      if (listErr) throw listErr;
+      const visible = (data || []).filter((e) => !isPlaceholder(e.name));
+      const folders = visible.filter((e) => e.id === null);
+      const files = visible.filter((e) => e.id !== null);
+      setEntries([...folders, ...files]);
+      setPath(p);
+
+      const imageFiles = files.filter((f) => isImageFile(f.name));
+      if (imageFiles.length > 0) {
+        const { data: signed } = await supabase.storage.from("mediathek").createSignedUrls(imageFiles.map((f) => p + f.name), 3600);
+        const map = {};
+        (signed || []).forEach((s) => { if (s.signedUrl) map[s.path.slice(p.length)] = s.signedUrl; });
+        setThumbs(map);
+      } else {
+        setThumbs({});
+      }
+    } catch (err) {
+      setError("Fehler beim Laden: " + err.message);
+    }
+    setLoading(false);
+  };
+
+  const openFolder = (name) => load(path + name + "/");
+  const goTo = (p) => load(p);
+  const segments = path.split("/").filter(Boolean);
+
+  const createFolder = async () => {
+    const name = newFolderName.trim();
+    if (!name || name.includes("/")) { setError('Ordnername darf nicht leer sein und kein „/" enthalten.'); return; }
+    setBusy(true);
+    setError("");
+    try {
+      const { error: upErr } = await supabase.storage.from("mediathek").upload(path + name + "/.emptyFolderPlaceholder", new Blob([""]), { upsert: false });
+      if (upErr) throw upErr;
+      setShowNewFolder(false);
+      setNewFolderName("");
+      await load(path);
+    } catch (err) {
+      setError("Fehler beim Anlegen: " + err.message);
+    }
+    setBusy(false);
+  };
+
+  const uploadFiles = async (fileList) => {
+    if (!fileList || fileList.length === 0) return;
+    setBusy(true);
+    setError("");
+    try {
+      for (const file of Array.from(fileList)) {
+        const { error: upErr } = await supabase.storage.from("mediathek").upload(path + file.name, file, { upsert: true, contentType: file.type || "application/octet-stream" });
+        if (upErr) throw upErr;
+      }
+      await load(path);
+    } catch (err) {
+      setError("Fehler beim Hochladen: " + err.message);
+    }
+    setBusy(false);
+  };
+
+  const openFile = async (name) => {
+    setError("");
+    try {
+      const { data, error: signErr } = await supabase.storage.from("mediathek").createSignedUrl(path + name, 3600);
+      if (signErr) throw signErr;
+      window.open(data.signedUrl, "_blank");
+    } catch (err) {
+      setError("Fehler beim Öffnen: " + err.message);
+    }
+  };
+
+  const deleteFile = async (name) => {
+    if (!window.confirm(`„${name}" wirklich löschen?`)) return;
+    setBusy(true);
+    setError("");
+    try {
+      const { error: delErr } = await supabase.storage.from("mediathek").remove([path + name]);
+      if (delErr) throw delErr;
+      await load(path);
+    } catch (err) {
+      setError("Fehler beim Löschen: " + err.message);
+    }
+    setBusy(false);
+  };
+
+  const deleteFolder = async (name) => {
+    if (!window.confirm(`Ordner „${name}" wirklich löschen? Der komplette Inhalt wird unwiderruflich entfernt.`)) return;
+    setBusy(true);
+    setError("");
+    try {
+      const prefix = path + name + "/";
+      const allPaths = await collectMediaPaths(prefix);
+      if (allPaths.length > 0) {
+        const { error: delErr } = await supabase.storage.from("mediathek").remove(allPaths);
+        if (delErr) throw delErr;
+      }
+      await load(path);
+    } catch (err) {
+      setError("Fehler beim Löschen: " + err.message);
+    }
+    setBusy(false);
+  };
+
+  const crumbBtn = (active) => ({ ...baseBtn, background: "transparent", color: active ? c.accent : c.textDim, padding: "2px 4px", fontSize: 12, fontWeight: active ? 700 : 500 });
+  const tileStyle = { background: c.surface, border: `1px solid ${c.border}`, borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, textAlign: "center" };
+  const nameStyle = { color: c.text, fontSize: 12, fontWeight: 600, width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+
+  const folderIcon = (
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke={c.accent} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    </svg>
+  );
+  const fileIcon = (
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke={c.textDim} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+    </svg>
+  );
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <h2 style={{ color: c.text, fontSize: 20, fontWeight: 700, marginBottom: 6 }}>Mediathek</h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+            <button onClick={() => goTo("")} style={crumbBtn(path === "")}>Root</button>
+            {segments.map((seg, i) => {
+              const segPath = segments.slice(0, i + 1).join("/") + "/";
+              return (
+                <span key={segPath} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ color: c.textMuted, fontSize: 12 }}>/</span>
+                  <button onClick={() => goTo(segPath)} style={crumbBtn(path === segPath)}>{seg}</button>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {busy && <span style={{ color: c.textDim, fontSize: 12 }}>Wird verarbeitet…</span>}
+          <button onClick={() => setShowNewFolder(true)} style={{ ...baseBtn, background: c.surfaceHover, color: c.text, border: `1px solid ${c.border}` }}>＋ Ordner</button>
+          <label style={{ ...baseBtn, background: c.accent, color: "#000", cursor: "pointer" }}>
+            ⬆ Hochladen
+            <input type="file" multiple style={{ display: "none" }} onChange={(e) => { uploadFiles(e.target.files); e.target.value = ""; }} />
+          </label>
+        </div>
+      </div>
+
+      {showNewFolder && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16, background: c.surface, border: `1px solid ${c.border}`, borderRadius: 8, padding: "10px 12px", flexWrap: "wrap" }}>
+          <span style={{ color: c.textDim, fontSize: 12 }}>Neuer Ordner:</span>
+          <input autoFocus style={{ ...inputStyle, width: 220 }} placeholder="Ordnername" value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") createFolder(); if (e.key === "Escape") { setShowNewFolder(false); setNewFolderName(""); } }} />
+          <button onClick={createFolder} disabled={busy} style={{ ...baseBtn, background: c.accent, color: "#000", opacity: busy ? 0.6 : 1 }}>Anlegen</button>
+          <button onClick={() => { setShowNewFolder(false); setNewFolderName(""); }} style={{ ...baseBtn, background: "transparent", color: c.textDim }}>Abbrechen</button>
+        </div>
+      )}
+
+      {error && (
+        <div style={{ background: c.dangerDim, color: c.danger, border: `1px solid ${c.danger}33`, borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 13 }}>{error}</div>
+      )}
+
+      {loading ? (
+        <div style={{ color: c.textDim, textAlign: "center", padding: 40 }}>Lädt...</div>
+      ) : entries.length === 0 ? (
+        <div style={{ color: c.textDim, textAlign: "center", padding: 40, fontSize: 13 }}>Dieser Ordner ist leer.</div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
+          {entries.map((entry) => entry.id === null ? (
+            <div key={"folder-" + entry.name} style={tileStyle}>
+              <div style={{ cursor: "pointer" }} onClick={() => openFolder(entry.name)}>{folderIcon}</div>
+              <div style={{ ...nameStyle, cursor: "pointer" }} onClick={() => openFolder(entry.name)} title={entry.name}>{entry.name}</div>
+              <button onClick={() => deleteFolder(entry.name)} disabled={busy}
+                style={{ ...baseBtn, background: c.dangerDim, color: c.danger, border: `1px solid ${c.danger}33`, fontSize: 10, padding: "2px 8px" }}>Löschen</button>
+            </div>
+          ) : (
+            <div key={"file-" + entry.name} style={tileStyle}>
+              {isImageFile(entry.name) && thumbs[entry.name] ? (
+                <img src={thumbs[entry.name]} alt={entry.name} style={{ width: "100%", height: 80, objectFit: "cover", borderRadius: 6 }} />
+              ) : fileIcon}
+              <div style={nameStyle} title={entry.name}>{entry.name}</div>
+              <div style={{ color: c.textMuted, fontSize: 10 }}>{humanFileSize(entry.metadata?.size)}</div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button onClick={() => openFile(entry.name)} style={{ ...baseBtn, background: c.infoDim, color: c.info, border: `1px solid ${c.info}33`, fontSize: 10, padding: "2px 8px" }}>Öffnen</button>
+                <button onClick={() => deleteFile(entry.name)} disabled={busy} style={{ ...baseBtn, background: c.dangerDim, color: c.danger, border: `1px solid ${c.danger}33`, fontSize: 10, padding: "2px 8px" }}>Löschen</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
 // Club Onboarding Wizard
 // ============================================
 const LIGA_OPTIONS = ["Kreisliga A", "Kreisliga B", "Kreisliga C", "Bezirksliga", "Landesliga", "Verbandsliga", "Oberliga", "Regionalliga", "Sonstige"];
@@ -2653,6 +2897,7 @@ export default function App() {
       settings: <svg {...s} viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
       backup: <svg {...s} viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
       library: <svg {...s} viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="12" y1="6" x2="12" y2="13"/><polyline points="9 10 12 13 15 10"/></svg>,
+      mediathek: <svg {...s} viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>,
       system: <svg {...s} viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>,
     };
     return icons[name] || null;
@@ -2667,6 +2912,7 @@ export default function App() {
     { key: "fussball", label: "fussball.de Sync" },
     { key: "system", label: "System" },
     { key: "library", label: "Trainingsplan-Bibliothek" },
+    { key: "mediathek", label: "Mediathek" },
   ];
 
   return (
@@ -2717,7 +2963,7 @@ export default function App() {
 
       {/* Content */}
       <div className="admin-content" style={{ flex: 1, padding: 28, overflowY: "auto" }}>
-        {dataLoading && page !== "requests" && page !== "settings" && page !== "clubs" && page !== "backup" && page !== "fussball" && page !== "system" && page !== "library" ? (
+        {dataLoading && page !== "requests" && page !== "settings" && page !== "clubs" && page !== "backup" && page !== "fussball" && page !== "system" && page !== "library" && page !== "mediathek" ? (
           <div style={{ color: c.textDim, textAlign: "center", paddingTop: 60 }}>Daten werden geladen...</div>
         ) : (
           <>
@@ -2730,6 +2976,7 @@ export default function App() {
             {page === "fussball" && <FussballSyncMonitor />}
             {page === "system" && <SystemSettings currentUser={session?.user} />}
             {page === "library" && <TrainingLibrary />}
+            {page === "mediathek" && <Mediathek />}
           </>
         )}
       </div>
