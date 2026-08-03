@@ -2808,6 +2808,52 @@ function Clubs({ clubs, onUpdate, onNewClub }) {
 }
 
 // ============================================
+// Versionen — Verlauf der App-Versionen (app_versions, Pflege via Migration/db-apply)
+// ============================================
+function Versions() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    supabase.from("app_versions").select("*").order("released_at", { ascending: false })
+      .then(({ data }) => { setRows(data || []); setLoading(false); });
+  }, []);
+  const current = rows[0];
+  return (
+    <div>
+      <h2 style={{ color: c.text, fontSize: 20, marginBottom: 4 }}>Versionen</h2>
+      <p style={{ color: c.textDim, fontSize: 12, marginBottom: 18 }}>
+        Welche Änderung kam mit welcher Version. Aktuelle Version steht auch unten in den App-Einstellungen der Trainer-App.
+      </p>
+      {loading ? (
+        <div style={{ color: c.textDim, paddingTop: 20 }}>Lade Versionen…</div>
+      ) : rows.length === 0 ? (
+        <div style={{ color: c.textDim, paddingTop: 20 }}>Noch keine Versionen erfasst.</div>
+      ) : (
+        <>
+          {current && (
+            <div style={{ background: c.accentDim, border: `1px solid ${c.accent}44`, borderRadius: 10, padding: "12px 16px", marginBottom: 18, display: "flex", alignItems: "baseline", gap: 10 }}>
+              <span style={{ color: c.accent, fontSize: 22, fontWeight: 800 }}>Kicklog {current.version}</span>
+              <span style={{ color: c.textDim, fontSize: 12 }}>aktuell · seit {new Date(current.released_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}</span>
+            </div>
+          )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {rows.map((r) => (
+              <div key={r.id} style={{ background: c.surface, border: `1px solid ${c.border}`, borderRadius: 10, padding: "12px 16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                  <span style={{ color: c.accent, fontWeight: 800, fontSize: 14 }}>{r.version}</span>
+                  <span style={{ color: c.textDim, fontSize: 11 }}>{new Date(r.released_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}</span>
+                </div>
+                <div style={{ color: c.text, fontSize: 12, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{r.beschreibung}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ============================================
 // Main App
 // ============================================
 export default function App() {
@@ -2900,6 +2946,7 @@ export default function App() {
       mediathek: <svg {...s} viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>,
       system: <svg {...s} viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>,
       fussball: <svg {...s} viewBox="0 0 24 24"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>,
+      versions: <svg {...s} viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>,
     };
     return icons[name] || null;
   };
@@ -2914,6 +2961,7 @@ export default function App() {
     { key: "system", label: "System" },
     { key: "library", label: "Trainingsplan-Bibliothek" },
     { key: "mediathek", label: "Mediathek" },
+    { key: "versions", label: "Versionen" },
   ];
 
   return (
@@ -2964,7 +3012,7 @@ export default function App() {
 
       {/* Content */}
       <div className="admin-content" style={{ flex: 1, padding: 28, overflowY: "auto" }}>
-        {dataLoading && page !== "requests" && page !== "settings" && page !== "clubs" && page !== "backup" && page !== "fussball" && page !== "system" && page !== "library" && page !== "mediathek" ? (
+        {dataLoading && page !== "requests" && page !== "settings" && page !== "clubs" && page !== "backup" && page !== "fussball" && page !== "system" && page !== "library" && page !== "mediathek" && page !== "versions" ? (
           <div style={{ color: c.textDim, textAlign: "center", paddingTop: 60 }}>Daten werden geladen...</div>
         ) : (
           <>
@@ -2978,6 +3026,7 @@ export default function App() {
             {page === "system" && <SystemSettings currentUser={session?.user} />}
             {page === "library" && <TrainingLibrary />}
             {page === "mediathek" && <Mediathek />}
+            {page === "versions" && <Versions />}
           </>
         )}
       </div>

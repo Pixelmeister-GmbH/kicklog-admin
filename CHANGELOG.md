@@ -1,4 +1,8 @@
 # Changelog — kicklog-admin
+## 03.08.2026
+
+- **Neuer Reiter „Versionen" (Auftrag Neo):** Übersicht der Kicklog-App-Versionen aus der neuen Tabelle `app_versions` — aktuelle Version prominent, darunter der Verlauf (Version · Datum · Beschreibung der Änderungen). Gepflegt wird die Tabelle ausschließlich über Migrationen/db-apply (RLS: nur lesen für eingeloggte). Start: 1.0.0.0 mit allen am 03.08. umgesetzten Funktionen.
+
 ## 21.07.2026 — Mediathek
 
 - **Neue Seite „Mediathek":** Media-Library mit Ordnern für Neo + Niko. Privater Storage-Bucket `mediathek` (Migration `db/2026-07-21_mediathek_bucket.sql`, RLS nur `super_admin`). Ordner anlegen (Inline), Datei-Upload (multi, upsert), Bild-Thumbnails (signed URLs), Öffnen/Download (signed URL), Datei- + rekursives Ordner-Löschen, Breadcrumb-Navigation, Grid-Kacheln. Läuft über den authentifizierten Admin-Client (`supabase.storage`) — **kein Service-Role im Client** (neue Architektur-Regel). ⚠ Migration muss im SQL-Editor angewendet werden, sonst „Fehler beim Laden".
