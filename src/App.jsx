@@ -1732,7 +1732,16 @@ function TrainingLibrary() {
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <h2 style={{ color: c.text, fontSize: 20, fontWeight: 700 }}>Trainingsplan-Bibliothek ({plans.length})</h2>
+        <h2 style={{ color: c.text, fontSize: 20, fontWeight: 700 }}>
+          Trainingsplan-Bibliothek ({plans.length})
+          {(() => {
+            const bloecke = plans.reduce((s, p) => s + (Number(p.block_count) || 0), 0);
+            const aktiv = plans.filter((p) => p.is_active).length;
+            return <span style={{ color: c.textDim, fontSize: 12, fontWeight: 500, marginLeft: 10 }}>
+              {aktiv} aktiv{bloecke ? ` · ${bloecke} TPD-Blöcke (Aktivierung/Spielblöcke/Zwischenblock)` : ""}
+            </span>;
+          })()}
+        </h2>
         <button onClick={() => setShowUpload(true)} style={{ ...baseBtn, background: c.accent, color: "#000" }}>+ Plan hinzufügen</button>
       </div>
 

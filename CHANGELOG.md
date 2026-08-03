@@ -1,6 +1,8 @@
 # Changelog — kicklog-admin
 ## 03.08.2026
 
+- **Trainingsplan-Bibliothek: Übersicht zeigt wieder Zahlen + saubere Trennung Einheiten/Blöcke (Meldung Neo):** Die Matrix stand komplett auf „—", weil die Altersklassen-Stammdaten noch die alten U-Nummern (U10…U19) führten, die Pläne aber auf das offizielle DFB-Schema umgestellt wurden. Stammdaten jetzt **Bambini · F- bis A-Jugend · Senior** — die Matrix ist befüllt (84 Einheiten über 50 Zellen). Außerdem zählte die Bibliothek 420 „Pläne", darin aber die 336 technischen Phasen-Blöcke der neuen TPD-Bibliothek. View und Übersichts-Funktion liefern jetzt nur die **kompletten Einheiten**; die Überschrift nennt zusätzlich, wie viele aktiv sind und wie viele TPD-Blöcke dahinterhängen.
+
 - **Neuer Reiter „Versionen" (Auftrag Neo):** Übersicht der Kicklog-App-Versionen aus der neuen Tabelle `app_versions` — aktuelle Version prominent, darunter der Verlauf (Version · Datum · Beschreibung der Änderungen). Gepflegt wird die Tabelle ausschließlich über Migrationen/db-apply (RLS: nur lesen für eingeloggte). Start: 1.0.0.0 mit allen am 03.08. umgesetzten Funktionen.
 
 ## 21.07.2026 — Mediathek
