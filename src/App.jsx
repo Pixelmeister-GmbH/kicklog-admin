@@ -1715,7 +1715,7 @@ function TrainingLibrary() {
   };
 
   const uploadPlan = async () => {
-    if (!uploadForm.title.trim() || !uploadForm.author_name.trim() || !uploadForm.topic_id || !uploadFile) {
+    if (!uploadForm.title.trim() || !uploadForm.topic_id || !uploadFile) {
       alert("Titel, Autor, Schwerpunkt und PDF sind Pflicht."); return;
     }
     if (uploadFile.size > 10 * 1024 * 1024) { alert("Datei zu groß (max. 10 MB)."); return; }
@@ -1915,7 +1915,7 @@ function TrainingLibrary() {
                         <span style={{ color: c.text, fontWeight: 600, fontSize: 14 }}>{p.title}</span>
                       </div>
                     )}
-                    <div style={{ color: c.textDim, fontSize: 11, marginTop: 2 }}>{p.author_name} · {fmtDate(p.created_at)}</div>
+                    <div style={{ color: c.textDim, fontSize: 11, marginTop: 2 }}>{[p.author_name, fmtDate(p.created_at)].filter(Boolean).join(" · ")}</div>
                   </div>
                   <button onClick={() => togglePlan(p.id, p.is_active)}
                     style={{ ...baseBtn, fontSize: 10, padding: "2px 8px", background: p.is_active ? c.accentDim : c.dangerDim, color: p.is_active ? c.accent : c.danger, border: `1px solid ${p.is_active ? c.accent : c.danger}33`, flexShrink: 0 }}>
