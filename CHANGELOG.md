@@ -1,4 +1,9 @@
 # Changelog — kicklog-admin
+
+## 04.08.2026
+
+- **Trainingsplan-Bibliothek: PDFs direkt aus der Liste öffnen (Auftrag Neo):** Der Titel eines Plans ist jetzt ein Link — ein Klick öffnet das hinterlegte PDF in einem neuen Tab, in der Tabellenansicht wie in der Karten-Ansicht auf dem Handy. Bisher ließ sich das PDF im Admin nur hochladen und löschen, aber nirgends ansehen. Der Storage-Bucket ist privat, deshalb wird beim Klick eine **kurzlebige signierte URL** (1 Stunde) erzeugt; das Tab öffnet sofort und bekommt die Adresse nachgereicht, damit der Popup-Blocker nicht dazwischenfunkt. Wird das Popup dennoch blockiert, öffnet das PDF im selben Tab. Pläne **ohne** hinterlegtes PDF bleiben bewusst unverlinkt und grau — man sieht auf einen Blick, wo eine Datei fehlt (aktuell bei keinem der 98 Pläne). Das Dokument-Symbol ist dabei von einem Emoji auf ein echtes SVG-Icon umgestellt, passend zum Hausstandard.
+
 ## 03.08.2026
 
 - **Trainingsplan-Bibliothek: Übersicht zeigt wieder Zahlen + saubere Trennung Einheiten/Blöcke (Meldung Neo):** Die Matrix stand komplett auf „—", weil die Altersklassen-Stammdaten noch die alten U-Nummern (U10…U19) führten, die Pläne aber auf das offizielle DFB-Schema umgestellt wurden. Stammdaten jetzt **Bambini · F- bis A-Jugend · Senior** — die Matrix ist befüllt (84 Einheiten über 50 Zellen). Außerdem zählte die Bibliothek 420 „Pläne", darin aber die 336 technischen Phasen-Blöcke der neuen TPD-Bibliothek. View und Übersichts-Funktion liefern jetzt nur die **kompletten Einheiten**; die Überschrift nennt zusätzlich, wie viele aktiv sind und wie viele TPD-Blöcke dahinterhängen.

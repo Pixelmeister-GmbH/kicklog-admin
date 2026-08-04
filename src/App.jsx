@@ -1597,6 +1597,15 @@ function SystemSettings({ currentUser }) {
 // ============================================
 // Training Library
 // ============================================
+// Dokument-Symbol als SVG (Hausregel: keine Emojis als UI-Icons)
+const pdfIcon = (color) => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"
+    strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+  </svg>
+);
+
 function TrainingLibrary() {
   const [topics, setTopics] = useState([]);
   const [ageGroups, setAgeGroups] = useState([]);
@@ -1653,6 +1662,28 @@ function TrainingLibrary() {
     if (!confirm("Schwerpunkt löschen?")) return;
     await supabase.from("training_topics").delete().eq("id", id);
     loadAll();
+  };
+
+  // PDF öffnen — der Bucket ist privat, also über eine kurzlebige signierte URL.
+  // Das Fenster muss SOFORT aufgehen (noch im Klick-Handler), sonst greift der
+  // Popup-Blocker; die URL wird erst danach nachgereicht.
+  const [openingPdf, setOpeningPdf] = useState(null);
+  const openPlanPdf = async (p) => {
+    if (!p.pdf_path) return;
+    const w = window.open("", "_blank");
+    setOpeningPdf(p.id);
+    try {
+      const { data, error } = await supabase.storage.from("training-plans").createSignedUrl(p.pdf_path, 3600);
+      if (error || !data?.signedUrl) throw error || new Error("Keine URL erhalten");
+      if (w) w.location.href = data.signedUrl;
+      else window.location.href = data.signedUrl; // Popup blockiert → im selben Tab
+    } catch (e) {
+      if (w) w.close();
+      console.error("PDF öffnen fehlgeschlagen:", e);
+      alert(`PDF konnte nicht geöffnet werden: ${e.message || e}`);
+    } finally {
+      setOpeningPdf(null);
+    }
   };
 
   const togglePlan = async (id, active) => {
@@ -1872,7 +1903,18 @@ function TrainingLibrary() {
               <Card key={p.id} style={{ padding: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: c.text, fontWeight: 600, fontSize: 14 }}>📄 {p.title}</div>
+                    {p.pdf_path ? (
+                      <button onClick={() => openPlanPdf(p)} title="PDF öffnen"
+                        style={{ ...baseBtn, background: "none", padding: 0, display: "flex", alignItems: "center", gap: 6, textAlign: "left", opacity: openingPdf === p.id ? 0.5 : 1 }}>
+                        {pdfIcon(c.info)}
+                        <span style={{ color: c.info, fontWeight: 600, fontSize: 14, textDecoration: "underline", textUnderlineOffset: 2 }}>{p.title}</span>
+                      </button>
+                    ) : (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }} title="Kein PDF hinterlegt">
+                        {pdfIcon(c.textDim)}
+                        <span style={{ color: c.text, fontWeight: 600, fontSize: 14 }}>{p.title}</span>
+                      </div>
+                    )}
                     <div style={{ color: c.textDim, fontSize: 11, marginTop: 2 }}>{p.author_name} · {fmtDate(p.created_at)}</div>
                   </div>
                   <button onClick={() => togglePlan(p.id, p.is_active)}
@@ -1905,9 +1947,19 @@ function TrainingLibrary() {
           )}
           {filtered.map((p) => (
             <div key={p.id} style={{ display: "contents" }}>
-              <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ color: c.info, fontSize: 14 }}>📄</span>
-                <span style={{ color: c.text, fontSize: 13, fontWeight: 500 }}>{p.title}</span>
+              <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                {p.pdf_path ? (
+                  <button onClick={() => openPlanPdf(p)} title="PDF öffnen"
+                    style={{ ...baseBtn, background: "none", padding: 0, display: "flex", alignItems: "center", gap: 6, minWidth: 0, textAlign: "left", opacity: openingPdf === p.id ? 0.5 : 1 }}>
+                    {pdfIcon(c.info)}
+                    <span style={{ color: c.info, fontSize: 13, fontWeight: 500, textDecoration: "underline", textUnderlineOffset: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
+                  </button>
+                ) : (
+                  <>
+                    {pdfIcon(c.textDim)}
+                    <span style={{ color: c.text, fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title="Kein PDF hinterlegt">{p.title}</span>
+                  </>
+                )}
               </div>
               <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.text, fontSize: 12 }}>{p.age_group}</div>
               <div style={{ padding: "10px 12px", borderBottom: `1px solid ${c.border}22`, color: c.accent, fontSize: 12 }}>{p.topic_name}</div>
