@@ -2869,6 +2869,138 @@ function Clubs({ clubs, onUpdate, onNewClub }) {
 }
 
 // ============================================
+// ============================================
+// Newsletter — Kundeninfos an Trainer und Vereins-Admins
+// Bewusst NICHT an Eltern/Spieler: deren Adressen sind fürs Training da.
+// Versand läuft über die Edge Function admin-newsletter (service-role),
+// im Client liegt kein Schlüssel.
+// ============================================
+function Newsletter() {
+  const [kampagnen, setKampagnen] = useState([]);
+  const [form, setForm] = useState({ betreff: "", inhalt: "", art: "produkt" });
+  const [anzahl, setAnzahl] = useState(null);
+  const [busy, setBusy] = useState("");
+  const [meldung, setMeldung] = useState(null);
+
+  const laden = () =>
+    supabase.from("newsletter_kampagnen").select("*").order("created_at", { ascending: false })
+      .then(({ data }) => setKampagnen(data || []));
+  useEffect(() => { laden(); }, []);
+
+  const ruf = async (body) => {
+    const { data: sess } = await supabase.auth.getSession();
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/admin-newsletter`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${sess?.session?.access_token}`, apikey: ANON_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "Fehler");
+    return j;
+  };
+
+  // Empfängerzahl aktualisieren, sobald die Art wechselt
+  useEffect(() => {
+    let weg = false;
+    ruf({ aktion: "vorschau", art: form.art }).then((j) => { if (!weg) setAnzahl(j.anzahl); }).catch(() => setAnzahl(null));
+    return () => { weg = true; };
+  }, [form.art]);
+
+  const test = async () => {
+    if (!form.betreff.trim() || !form.inhalt.trim()) return setMeldung({ ok: false, text: "Betreff und Text fehlen." });
+    setBusy("test"); setMeldung(null);
+    try {
+      const j = await ruf({ aktion: "test", betreff: form.betreff, inhalt: form.inhalt, art: form.art, test_an: "trinity@pixelmeister.de" });
+      setMeldung({ ok: true, text: `Testmail an ${j.an} verschickt.` });
+    } catch (e) { setMeldung({ ok: false, text: String(e.message) }); }
+    setBusy("");
+  };
+
+  const senden = async () => {
+    if (!form.betreff.trim() || !form.inhalt.trim()) return setMeldung({ ok: false, text: "Betreff und Text fehlen." });
+    if (!confirm(`Wirklich an ${anzahl ?? "?"} Empfänger senden? Das lässt sich nicht zurückholen.`)) return;
+    setBusy("senden"); setMeldung(null);
+    try {
+      const { data: k, error } = await supabase.from("newsletter_kampagnen")
+        .insert({ betreff: form.betreff, inhalt: form.inhalt, art: form.art }).select().single();
+      if (error) throw error;
+      const j = await ruf({ aktion: "senden", kampagne_id: k.id, betreff: form.betreff, inhalt: form.inhalt, art: form.art });
+      setMeldung({ ok: true, text: `${j.ok} Mails verschickt${j.fehler?.length ? `, ${j.fehler.length} fehlgeschlagen` : ""}.` });
+      setForm({ betreff: "", inhalt: "", art: form.art });
+      laden();
+    } catch (e) { setMeldung({ ok: false, text: String(e.message) }); }
+    setBusy("");
+  };
+
+  return (
+    <div>
+      <h2 style={{ color: c.text, fontSize: 20, marginBottom: 4 }}>Newsletter</h2>
+      <p style={{ color: c.textDim, fontSize: 13, marginBottom: 18, maxWidth: 620, lineHeight: 1.6 }}>
+        Geht an Trainer und Vereins-Admins — nie an Eltern oder Spieler. Jede Mail enthält
+        automatisch einen Abmeldelink; wer sich abgemeldet hat, wird dauerhaft übersprungen.
+      </p>
+
+      <Card style={{ padding: 20, marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+          {[["produkt", "Produkt-Info", "Neue Funktionen, Wartung — an alle Kunden"],
+            ["werbung", "Werbung", "Nur an Kunden, die zugestimmt haben"]].map(([k, label, hint]) => (
+            <button key={k} onClick={() => setForm({ ...form, art: k })} title={hint}
+              style={{ ...baseBtn, padding: "8px 14px", background: form.art === k ? c.accentDim : "transparent",
+                color: form.art === k ? c.accent : c.textDim, border: `1px solid ${form.art === k ? c.accent + "55" : c.border}` }}>
+              {label}
+            </button>
+          ))}
+          <span style={{ marginLeft: "auto", alignSelf: "center", fontSize: 13, color: anzahl === 0 ? c.warn : c.text }}>
+            {anzahl === null ? "…" : `${anzahl} Empfänger`}
+          </span>
+        </div>
+        <input style={{ ...inputStyle, marginBottom: 10 }} placeholder="Betreff"
+          value={form.betreff} onChange={(e) => setForm({ ...form, betreff: e.target.value })} />
+        <textarea style={{ ...inputStyle, minHeight: 180, lineHeight: 1.6 }}
+          placeholder={"Text der Nachricht.\n\nLeerzeile = neuer Absatz."}
+          value={form.inhalt} onChange={(e) => setForm({ ...form, inhalt: e.target.value })} />
+        {meldung && (
+          <div style={{ marginTop: 12, padding: "9px 12px", borderRadius: 8, fontSize: 13,
+            background: (meldung.ok ? c.accent : c.danger) + "18", color: meldung.ok ? c.accent : c.danger,
+            border: `1px solid ${(meldung.ok ? c.accent : c.danger)}33` }}>{meldung.text}</div>
+        )}
+        <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+          <button onClick={test} disabled={!!busy}
+            style={{ ...baseBtn, background: c.infoDim, color: c.info, border: `1px solid ${c.info}33` }}>
+            {busy === "test" ? "Sende…" : "Testmail an trinity@pixelmeister.de"}
+          </button>
+          <button onClick={senden} disabled={!!busy || !anzahl}
+            style={{ ...baseBtn, background: c.accent, color: "#04130a", opacity: !anzahl ? 0.5 : 1 }}>
+            {busy === "senden" ? "Versand läuft…" : `An ${anzahl ?? "?"} Empfänger senden`}
+          </button>
+        </div>
+      </Card>
+
+      <h3 style={{ color: c.text, fontSize: 15, marginBottom: 10 }}>Verschickt</h3>
+      {kampagnen.length === 0 ? (
+        <div style={{ color: c.textDim, fontSize: 13 }}>Noch nichts verschickt.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {kampagnen.map((k) => (
+            <Card key={k.id} style={{ padding: 14, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ color: c.text, fontWeight: 600, fontSize: 14 }}>{k.betreff}</div>
+                <div style={{ color: c.textDim, fontSize: 11, marginTop: 2 }}>
+                  {k.art === "werbung" ? "Werbung" : "Produkt-Info"} · {fmtDate(k.gesendet_at || k.created_at)}
+                </div>
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 700, color: c.accent, background: c.accentDim, borderRadius: 10, padding: "3px 10px" }}>
+                {k.empfaenger_anzahl} Empfänger
+              </span>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
 // Versionen — Verlauf der App-Versionen (app_versions, Pflege via Migration/db-apply)
 // ============================================
 function Versions() {
@@ -2997,6 +3129,7 @@ export default function App() {
   const navIcon = (name, color) => {
     const s = { width: 18, height: 18, fill: "none", stroke: color, strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" };
     const icons = {
+      newsletter: <svg {...s} viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>,
       dashboard: <svg {...s} viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
       customers: <svg {...s} viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
       clubs: <svg {...s} viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
@@ -3022,6 +3155,7 @@ export default function App() {
     { key: "system", label: "System" },
     { key: "library", label: "Trainingsplan-Bibliothek" },
     { key: "mediathek", label: "Mediathek" },
+    { key: "newsletter", label: "Newsletter" },
     { key: "versions", label: "Versionen" },
   ];
 
@@ -3087,6 +3221,7 @@ export default function App() {
             {page === "system" && <SystemSettings currentUser={session?.user} />}
             {page === "library" && <TrainingLibrary />}
             {page === "mediathek" && <Mediathek />}
+            {page === "newsletter" && <Newsletter />}
             {page === "versions" && <Versions />}
           </>
         )}
