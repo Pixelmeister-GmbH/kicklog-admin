@@ -2,6 +2,10 @@
 
 ## 04.08.2026
 
+- **Newsletter: Empfänger der Testmail frei wählbar (Auftrag Neo):** Neben dem Test-Knopf steht jetzt ein Feld für die Zieladresse — vorbelegt mit der Adresse des gerade eingeloggten Admins, damit die Probemail ohne Umweg im eigenen Postfach landet. Vorher ging jede Testmail fest an `trinity@pixelmeister.de`, was zum Gegenlesen des Layouts unpraktisch war. Enter im Feld löst den Versand aus; eine offensichtlich unvollständige Adresse wird abgefangen, bevor die Funktion überhaupt gerufen wird.
+
+- **Newsletter-Absender wieder `news@kicklog.de`:** Der Zwischenstand über `kicklog@pixelmeister.de` war eine Fehldiagnose — Kicklog hat ein **eigenes** Resend-Konto (GitHub-Anmeldung), in dem `kicklog.de` seit Monaten verifiziert ist; geprüft worden war versehentlich das Pixelmeister-Konto. Live gegengeprüft über die Kontaktformular-Funktion, die denselben Schlüssel benutzt.
+
 - **Trainingsplan-Bibliothek: PDFs direkt aus der Liste öffnen (Auftrag Neo):** Der Titel eines Plans ist jetzt ein Link — ein Klick öffnet das hinterlegte PDF in einem neuen Tab, in der Tabellenansicht wie in der Karten-Ansicht auf dem Handy. Bisher ließ sich das PDF im Admin nur hochladen und löschen, aber nirgends ansehen. Der Storage-Bucket ist privat, deshalb wird beim Klick eine **kurzlebige signierte URL** (1 Stunde) erzeugt; das Tab öffnet sofort und bekommt die Adresse nachgereicht, damit der Popup-Blocker nicht dazwischenfunkt. Wird das Popup dennoch blockiert, öffnet das PDF im selben Tab. Pläne **ohne** hinterlegtes PDF bleiben bewusst unverlinkt und grau — man sieht auf einen Blick, wo eine Datei fehlt (aktuell bei keinem der 98 Pläne). Das Dokument-Symbol ist dabei von einem Emoji auf ein echtes SVG-Icon umgestellt, passend zum Hausstandard.
 
 ## 03.08.2026

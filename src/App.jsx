@@ -2881,6 +2881,13 @@ function Newsletter() {
   const [anzahl, setAnzahl] = useState(null);
   const [busy, setBusy] = useState("");
   const [meldung, setMeldung] = useState(null);
+  const [testAn, setTestAn] = useState("");
+
+  // Testmail geht standardmäßig an den, der gerade eingeloggt ist — überschreibbar.
+  useEffect(() => {
+    supabase.auth.getSession()
+      .then(({ data }) => setTestAn(data?.session?.user?.email || "trinity@pixelmeister.de"));
+  }, []);
 
   const laden = () =>
     supabase.from("newsletter_kampagnen").select("*").order("created_at", { ascending: false })
@@ -2908,9 +2915,11 @@ function Newsletter() {
 
   const test = async () => {
     if (!form.betreff.trim() || !form.inhalt.trim()) return setMeldung({ ok: false, text: "Betreff und Text fehlen." });
+    const ziel = testAn.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(ziel)) return setMeldung({ ok: false, text: "Das sieht nicht nach einer E-Mail-Adresse aus." });
     setBusy("test"); setMeldung(null);
     try {
-      const j = await ruf({ aktion: "test", betreff: form.betreff, inhalt: form.inhalt, art: form.art, test_an: "trinity@pixelmeister.de" });
+      const j = await ruf({ aktion: "test", betreff: form.betreff, inhalt: form.inhalt, art: form.art, test_an: ziel });
       setMeldung({ ok: true, text: `Testmail an ${j.an} verschickt.` });
     } catch (e) { setMeldung({ ok: false, text: String(e.message) }); }
     setBusy("");
@@ -2964,10 +2973,13 @@ function Newsletter() {
             background: (meldung.ok ? c.accent : c.danger) + "18", color: meldung.ok ? c.accent : c.danger,
             border: `1px solid ${(meldung.ok ? c.accent : c.danger)}33` }}>{meldung.text}</div>
         )}
-        <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap", alignItems: "center" }}>
+          <input type="email" style={{ ...inputStyle, width: "auto", flex: "1 1 220px", maxWidth: 300 }}
+            placeholder="Testmail an …" value={testAn} onChange={(e) => setTestAn(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !busy) test(); }} />
           <button onClick={test} disabled={!!busy}
             style={{ ...baseBtn, background: c.infoDim, color: c.info, border: `1px solid ${c.info}33` }}>
-            {busy === "test" ? "Sende…" : "Testmail an trinity@pixelmeister.de"}
+            {busy === "test" ? "Sende…" : "Testmail senden"}
           </button>
           <button onClick={senden} disabled={!!busy || !anzahl}
             style={{ ...baseBtn, background: c.accent, color: "#04130a", opacity: !anzahl ? 0.5 : 1 }}>
