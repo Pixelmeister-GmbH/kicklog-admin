@@ -1026,6 +1026,8 @@ function Settings({ currentUser }) {
   const [msg, setMsg] = useState("");
   const [googleKey, setGoogleKey] = useState("");
   const [googleKeySaved, setGoogleKeySaved] = useState(false);
+  const [gaId, setGaId] = useState("");
+  const [gaMsg, setGaMsg] = useState("");
 
   useEffect(() => {
     loadAdmins();
@@ -1033,7 +1035,27 @@ function Settings({ currentUser }) {
       const { data } = await supabase.from("app_settings").select("value").eq("key", "google_places_api_key").single();
       if (data?.value) setGoogleKey(data.value);
     })();
+    (async () => {
+      const { data } = await supabase.from("app_settings").select("value").eq("key", "google_analytics_id").single();
+      if (data?.value) setGaId(data.value);
+    })();
   }, []);
+
+  // Messung speichern oder abschalten. Leeres Feld = bewusstes Aus: die Frontends
+  // laden dann gar kein Skript, statt eine kaputte ID zu verwenden.
+  const saveGaId = async () => {
+    const wert = gaId.trim();
+    if (wert && !/^G-[A-Z0-9]{6,}$/i.test(wert)) {
+      setGaMsg("Das sieht nicht nach einer Mess-ID aus — erwartet wird G-XXXXXXXXXX.");
+      return;
+    }
+    const { error } = await supabase.from("app_settings")
+      .upsert({ key: "google_analytics_id", value: wert.toUpperCase(), updated_at: new Date().toISOString() });
+    if (error) { setGaMsg("Konnte nicht gespeichert werden: " + error.message); return; }
+    setGaId(wert.toUpperCase());
+    setGaMsg(wert ? "✓ Gespeichert — die Messung läuft ab dem nächsten Seitenaufruf." : "✓ Messung abgeschaltet.");
+    setTimeout(() => setGaMsg(""), 6000);
+  };
 
   const loadAdmins = async () => {
     const { data } = await supabase.from("profiles").select("id, vorname, nachname").eq("role", "super_admin");
@@ -1112,6 +1134,35 @@ function Settings({ currentUser }) {
           }} style={{ ...baseBtn, background: c.accent, color: "#000" }}>Speichern</button>
         </div>
         {googleKeySaved && <div style={{ color: c.accent, fontSize: 12, marginTop: 8 }}>✓ Gespeichert — gilt für alle Teams</div>}
+      </Card>
+
+      {/* Google Analytics — zentral für Trainer-App, Eltern-/Spieler-App und Landing */}
+      <Card style={{ marginTop: 16 }}>
+        <div style={{ color: c.textDim, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 14 }}>Google Analytics (Global)</div>
+        <p style={{ color: c.textDim, fontSize: 12, marginBottom: 10 }}>
+          Mess-ID aus GA4 (Verwaltung → Datenströme). Sobald hier eine ID steht, laden
+          <strong style={{ color: c.text }}> Trainer-App, Eltern-/Spieler-App und kicklog.de </strong>
+          die Messung beim Start. Feld leeren = Messung überall aus.
+        </p>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input
+            style={{ ...inputStyle, flex: 1 }}
+            type="text"
+            placeholder="G-XXXXXXXXXX"
+            value={gaId}
+            onChange={(e) => { setGaId(e.target.value); setGaMsg(""); }}
+          />
+          <button onClick={saveGaId} style={{ ...baseBtn, background: c.accent, color: "#000" }}>Speichern</button>
+        </div>
+        {gaMsg && (
+          <div style={{ color: gaMsg.startsWith("✓") ? c.accent : c.danger, fontSize: 12, marginTop: 8 }}>{gaMsg}</div>
+        )}
+        <div style={{ color: c.warn, fontSize: 11.5, marginTop: 12, lineHeight: 1.5, background: c.warn + "12", border: `1px solid ${c.warn}33`, borderRadius: 8, padding: "9px 12px" }}>
+          Die Messung startet ohne Einwilligungsabfrage, sobald eine ID hinterlegt ist.
+          In Deutschland ist dafür nach §&nbsp;25 TDDDG normalerweise eine Einwilligung nötig,
+          und die Datenschutzerklärungen müssen die Messung benennen. Bewusste Entscheidung —
+          vor dem Verkaufsstart mit prüfen lassen.
+        </div>
       </Card>
 
       {/* GitHub Token für Backup API */}
